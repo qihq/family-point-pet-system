@@ -1,0 +1,52 @@
+﻿services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: family-point-pet-app
+    ports:
+      - "${APP_PORT:-3100}:3000"
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:${DB_PORT:-5432}/${DB_NAME:-family_pet}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+    depends_on:
+      - postgres
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev
+    restart: unless-stopped
+
+  model-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: family-point-pet-model-worker
+    depends_on:
+      - postgres
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:${DB_PORT:-5432}/${DB_NAME:-family_pet}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run worker:models
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: family-point-pet-db
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME:-family_pet}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

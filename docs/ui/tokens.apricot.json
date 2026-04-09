@@ -1,0 +1,23 @@
+{
+  "theme": "Apricot",
+  "modes": ["Default", "Kid"],
+  "colors": {
+    "primary": "#FF8E6E",
+    "primary-600": "#F1785A",
+    "primary-100": "#FFE6DE",
+    "surface": "#FFF7F0",
+    "card": "#FFF2E8",
+    "text": "#2D2A26",
+    "border": "#EFE8E3",
+    "success": "#62C29B",
+    "warn": "#E3A44D",
+    "error": "#E07A73",
+    "info": "#5CB8A6"
+  },
+  "typography": { "fontFamily": "Noto Sans SC, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif", "base": "16px", "kidBase": "18px", "lineHeight": 1.6 },
+  "radius": { "sm": 8, "md": 12, "kidMd": 16 },
+  "space": { "4": 4, "8": 8, "12": 12, "16": 16, "24": 24 },
+  "elevation": { "sm": "0 2px 8px rgba(0,0,0,0.06)" },
+  "controls": { "height": 44, "kidHeight": 48 },
+  "focus": { "ring": "0 0 0 3px rgba(255,142,110,0.35)", "kidRing": "0 0 0 4px rgba(255,142,110,0.50)" }
+}

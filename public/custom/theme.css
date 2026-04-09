@@ -1,0 +1,11 @@
+﻿/* Custom theme overrides
+   Map /app/public or /app/public/custom to a NAS folder and edit this file.
+   Examples below tweak brand color, radii and font. Remove comments to apply. */
+
+:root {
+  /* --color-primary: #ff7a45; */
+  /* --radius-base: 10px; */
+}
+
+/* Add global overrides here */
+/* body { background: #fffaf5; } */

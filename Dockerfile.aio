@@ -1,0 +1,38 @@
+﻿# All-in-One: Next.js app + PostgreSQL (Debian Bookworm)
+FROM node:20-bookworm AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --no-audit --no-fund
+COPY prisma ./prisma
+RUN npx prisma generate
+COPY . .
+RUN npm run build
+
+FROM node:20-bookworm-slim AS runner
+WORKDIR /app
+ENV NODE_ENV=production \
+    PORT=3000 \
+    POSTGRES_DB=family_points \
+    POSTGRES_USER=fp_user \
+    POSTGRES_PASSWORD=fp_pass_please_change
+
+# Install PostgreSQL server + tini
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends postgresql postgresql-contrib tini && \
+    rm -rf /var/lib/apt/lists/*
+
+# Prepare pg data dir
+RUN mkdir -p /var/lib/postgresql/data && chown -R postgres:postgres /var/lib/postgresql
+
+# Copy app artifacts
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/prisma ./prisma
+
+COPY docker-entrypoint-aio.sh /app/docker-entrypoint-aio.sh
+RUN sed -i 's/\r$//' /app/docker-entrypoint-aio.sh && chmod +x /app/docker-entrypoint-aio.sh
+
+EXPOSE 3000
+ENTRYPOINT ["/usr/bin/tini","--","/app/docker-entrypoint-aio.sh"]

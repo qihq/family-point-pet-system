@@ -1,0 +1,65 @@
+﻿services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: family-point-pet-app
+    ports:
+      - "${APP_PORT:-3100}:3000"
+    env_file:
+      - .env
+    environment:
+      - TZ=${TZ:-Asia/Shanghai}
+      - DATABASE_URL=postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:${DB_PORT:-5432}/${DB_NAME:-family_pet}
+      - JWT_SECRET=${JWT_SECRET}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3100}
+    depends_on:
+      postgres:
+        condition: service_started
+    volumes:
+      # 奖品图片/孩子宠物模型等上传文件（持久化）
+      - /volume1/docker/family-pet/uploads:/app/public/uploads
+      # 可选：全局模型（只读），无需重建镜像即可替换 /public/models
+      # - /volume1/docker/family-pet/public-models:/app/public/models:ro
+    command: sh -lc "npx prisma migrate deploy && npm run build && npm run start"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+  model-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: family-point-pet-model-worker
+    env_file:
+      - .env
+    environment:
+      - TZ=${TZ:-Asia/Shanghai}
+    volumes:
+      - /volume1/docker/family-pet/uploads:/app/public/uploads
+    command: npm run worker:models
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: family-point-pet-db
+    env_file:
+      - .env
+    environment:
+      - TZ=${TZ:-Asia/Shanghai}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME:-family_pet}
+    volumes:
+      - /volume1/docker/family-pet/pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped

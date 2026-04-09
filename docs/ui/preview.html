@@ -1,0 +1,127 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Apricot UI 预览（含儿童模式）</title>
+  <link rel="stylesheet" href="./theme.css" />
+  <style>
+    .topbar { position: sticky; top: 0; backdrop-filter: blur(6px); background: rgba(255,247,240,.8); border-bottom: 1px solid var(--color-border); }
+    .toolbar { display:flex; gap:12px; align-items:center; justify-content:space-between; padding: 10px 20px; }
+    .brand { font-weight:700; }
+    .demo-grid { display:grid; grid-template-columns: 2fr 1fr; gap: var(--space-16); }
+    @media (max-width: 1000px){ .demo-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="toolbar container">
+      <div class="brand">家庭温暖主题 UI（Apricot）</div>
+      <div class="hstack">
+        <label class="hstack" style="gap:6px;">
+          <input id="kidToggle" type="checkbox" /> 儿童模式
+        </label>
+        <button class="btn btn--primary" onclick="location.reload()">刷新</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="container vstack">
+    <section class="section">
+      <h2>按钮 Buttons</h2>
+      <div class="btn-group">
+        <button class="btn btn--primary">主按钮</button>
+        <button class="btn btn--outline">描边按钮</button>
+        <button class="btn">默认按钮</button>
+        <button class="btn btn--success">成功</button>
+        <button class="btn btn--warn">警告</button>
+        <button class="btn btn--danger">危险</button>
+        <button class="btn btn--primary" disabled>禁用</button>
+      </div>
+    </section>
+
+    <section class="section demo-grid">
+      <div class="vstack">
+        <h2>表单 Form</h2>
+        <input class="input" placeholder="成员/宠物 搜索..." />
+        <div class="hstack">
+          <input class="input" placeholder="积分数量" style="max-width:200px;" />
+          <select class="select"><option>选择奖励</option><option>小零食</option><option>遛弯30分钟</option></select>
+          <button class="btn btn--primary">发放积分</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">创建任务（向导示例）</div>
+          <div class="card-meta">对象 → 规则积分 → 时间窗口</div>
+          <div class="separator"></div>
+          <div class="hstack">
+            <select class="select"><option>选择对象</option><option>可可（宠物）</option><option>小明（成员）</option></select>
+            <input class="input" placeholder="+20" style="max-width:120px;" />
+            <input class="input" placeholder="时间范围" style="max-width:200px;" />
+            <button class="btn btn--primary">下一步</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="vstack">
+        <h2>徽章 Badges</h2>
+        <div class="hstack">
+          <span class="badge">普通</span>
+          <span class="badge badge--success">健康</span>
+          <span class="badge badge--warn">库存紧张</span>
+          <span class="badge badge--danger">异常</span>
+        </div>
+
+        <h2 style="margin-top:16px;">KPI</h2>
+        <div class="grid">
+          <div class="kpi"><div class="label">本周发放积分</div><div class="value">420</div></div>
+          <div class="kpi"><div class="label">兑换次数</div><div class="value">18</div></div>
+          <div class="kpi"><div class="label">活跃家庭</div><div class="value">12</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>表格 Table（默认密度）</h2>
+      <table class="table">
+        <thead><tr><th>对象</th><th>类型</th><th>最近积分</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr><td>可可</td><td>宠物</td><td>+20</td><td><span class="badge badge--success">良好</span></td><td><button class="btn btn--outline">详情</button></td></tr>
+          <tr><td>小明</td><td>成员</td><td>+15</td><td><span class="badge">正常</span></td><td><button class="btn btn--outline">详情</button></td></tr>
+          <tr><td>球球</td><td>宠物</td><td>+10</td><td><span class="badge badge--warn">待观察</span></td><td><button class="btn btn--outline">详情</button></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section grid grid-3">
+      <div class="card">
+        <div class="card-title">奖励中心</div>
+        <div class="card-meta">需要 120 分，还差 20 分</div>
+        <div class="separator"></div>
+        <div class="hstack"><button class="btn btn--primary">兑换</button><button class="btn">加入心愿</button></div>
+      </div>
+      <div class="card">
+        <div class="card-title">快捷加分</div>
+        <div class="card-meta">最近：遛弯、清理猫砂、喂食</div>
+        <div class="separator"></div>
+        <div class="btn-group"><button class="btn btn--primary">+5</button><button class="btn btn--primary">+10</button><button class="btn btn--primary">+20</button></div>
+      </div>
+      <div class="card">
+        <div class="card-title">最近活动</div>
+        <div class="card-meta">今天 09:20 发放 +10（小明）</div>
+        <div class="separator"></div>
+        <button class="btn btn--outline">查看全部</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const toggle = document.getElementById('kidToggle');
+    const root = document.documentElement;
+    toggle.addEventListener('change', () => {
+      if (toggle.checked) root.setAttribute('data-mode','kid');
+      else root.removeAttribute('data-mode');
+    });
+  </script>
+</body>
+</html>

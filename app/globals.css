@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Apricot theme */
+  --bg: #FFF7F0;            /* surface background */
+  --card: #FFF2E8;          /* card surface */
+  --text: #2D2A26;          /* cozy deep text */
+  --muted: #6B6663;         /* warm muted text */
+  --border: #EFE8E3;        /* subtle border */
+
+  --primary: #FF8E6E;       /* apricot-500 */
+  
+  --primary-700: #D86447;   /* apricot-700 */
+  --primary-800: #B7513A;   /* apricot-800 */   /* apricot-600 */
+  
+  --primary-50: #FFF2EC;        /* apricot-50 */   /* apricot-100 */
+}
+
+* { box-sizing: border-box; padding: 0; margin: 0; }
+
+html { font-size: 16px; }
+html, body { max-width: 100vw; overflow-x: hidden; }
+
+body {
+  color: var(--text);
+  /* soft warm gradient */
+  background: linear-gradient(180deg, var(--bg) 0%, rgba(255,230,222,0.12) 100%);
+}
+
+/* Kid mode overrides (applies when /child pages mount) */
+html[data-mode="kid"], body[data-mode="kid"] {
+  font-size: 18px; /* scale rem-based typography */
+}
+
+:where(a) { color: inherit; text-decoration: none; }
+

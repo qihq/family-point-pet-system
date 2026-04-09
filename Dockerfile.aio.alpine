@@ -1,0 +1,23 @@
+﻿# All-in-One (Alpine): reuse local app image
+FROM family-point:latest AS runner
+WORKDIR /app
+
+# Install PostgreSQL 15 and runtime libs
+RUN apk add --no-cache postgresql16 su-exec icu-libs krb5-libs openldap cyrus-sasl keyutils
+
+# Create postgres user and data dir
+RUN addgroup -S postgres && adduser -S -G postgres postgres && \
+    mkdir -p /var/lib/postgresql/data && chown -R postgres:postgres /var/lib/postgresql
+
+ENV NODE_ENV=production \
+    PORT=3000 \
+    POSTGRES_DB=family_points \
+    POSTGRES_USER=fp_user \
+    POSTGRES_PASSWORD=fp_pass_please_change
+
+COPY docker-entrypoint-aio-alpine.sh /app/docker-entrypoint-aio-alpine.sh
+RUN sed -i 's/\r$//' /app/docker-entrypoint-aio-alpine.sh && chmod +x /app/docker-entrypoint-aio-alpine.sh
+
+EXPOSE 3000
+ENTRYPOINT ["/app/docker-entrypoint-aio-alpine.sh"]
+

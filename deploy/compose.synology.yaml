@@ -1,0 +1,40 @@
+﻿name: family-point-synology
+
+services:
+  db:
+    image: postgres:16
+    container_name: family-point-db
+    environment:
+      POSTGRES_DB: family_points
+      POSTGRES_USER: fp_user
+      POSTGRES_PASSWORD: fp_pass_please_change
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: family-point:latest
+    container_name: family-point-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://fp_user:fp_pass_please_change@db:5432/family_points
+      NEXTAUTH_SECRET: please_generate_a_random_secret
+      # 首次部署时设为 true 完成 seed，之后改为 false 或删掉
+      STARTUP_SEED: "false"
+      # 可选：控制种子里管理员账户
+      ADMIN_NAME: admin
+      ADMIN_PASSWORD: admin123
+    ports:
+      - "3100:3000"
+    restart: unless-stopped
+
+volumes:
+  db_data:

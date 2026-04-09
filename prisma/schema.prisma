@@ -1,0 +1,294 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  parent
+  child
+  admin
+}
+
+enum PointsType {
+  fixed
+  range
+}
+
+enum Frequency {
+  daily
+  weekly
+  monthly
+  once
+  unlimited
+}
+
+enum RecordStatus {
+  pending
+  approved
+  rejected
+}
+
+enum TransactionType {
+  earn
+  spend
+}
+
+enum SourceType {
+  task
+  manual
+  pet
+}
+
+enum PetStage {
+  egg
+  baby
+  growth
+  final
+}
+
+enum PetStatus {
+  alive
+  dead
+}
+
+enum PetAction {
+  feed
+  water
+  clean
+  play
+  evolve
+  revive
+  decay
+}
+
+model Family {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users      User[]
+  pointRules PointRule[]
+  rewardItems RewardItem[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String   @unique
+  role         Role
+  pin          String?
+  password     String?
+  familyId     String
+  avatarUrl    String?
+  isDeleted    Boolean  @default(false)
+  deletedAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  family       Family        @relation(fields: [familyId], references: [id])
+  pointAccount PointAccount?
+  pointRecords PointRecord[]
+  pet          Pet?
+  totalEarnedPoints Int      @default(0)
+  level            Int      @default(1)
+  streak           Int      @default(0)
+  lastCheckIn      DateTime?
+  taskPlans   TaskPlan[]
+  taskLogs    TaskLog[]
+  redeemLogs  RedeemLog[]
+}
+
+
+model PointRule {
+  id           String      @id @default(uuid())
+  name         String
+  description  String?
+  category     String
+  pointsType   PointsType
+  points       Int
+  pointsMin    Int?
+  pointsMax    Int?
+  needApproval Boolean     @default(false)
+  frequency    Frequency
+  maxTimes     Int?
+  enabled     Boolean   @default(true)
+  familyId     String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  family       Family            @relation(fields: [familyId], references: [id])
+  targets      PointRuleTarget[]
+  records      PointRecord[]
+}model PointRuleTarget {
+  id          String @id @default(uuid())
+  pointRuleId String
+  childId     String
+
+  pointRule PointRule @relation(fields: [pointRuleId], references: [id], onDelete: Cascade)
+}
+
+model PointRecord {
+  id           String       @id @default(uuid())
+  childId      String
+  pointRuleId  String
+  status       RecordStatus @default(pending)
+  points       Int          // ÃƒÆ’Ã‚Â¨Ãƒâ€šÃ‚Â®Ãƒâ€šÃ‚Â°ÃƒÆ’Ã‚Â¥Ãƒâ€šÃ‚Â½ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ÃƒÆ’Ã‚Â§Ãƒâ€šÃ‚Â§Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã‚Â¥Ãƒâ€¹Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¥Ãƒâ€šÃ‚ÂÃƒâ€¹Ã…â€œÃƒÆ’Ã‚Â¥Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“ÃƒÆ’Ã‚Â§Ãƒâ€¦Ã‚Â¡ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ÃƒÆ’Ã‚Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚Â°ÃƒÆ’Ã‚Â¥ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¼
+  description  String?
+  imageUrl     String?
+  submitNote   String?      // ÃƒÆ’Ã‚Â¥Ãƒâ€šÃ‚Â­Ãƒâ€šÃ‚Â©ÃƒÆ’Ã‚Â¥Ãƒâ€šÃ‚Â­Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¦Ãƒâ€šÃ‚ÂÃƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¤Ãƒâ€šÃ‚ÂºÃƒâ€šÃ‚Â¤ÃƒÆ’Ã‚Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â¶ÃƒÆ’Ã‚Â§Ãƒâ€¦Ã‚Â¡ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾ÃƒÆ’Ã‚Â¥Ãƒâ€šÃ‚Â¤ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡ÃƒÆ’Ã‚Â¦Ãƒâ€šÃ‚Â³Ãƒâ€šÃ‚Â¨
+  reviewNote   String?      // ÃƒÆ’Ã‚Â¥Ãƒâ€šÃ‚Â®Ãƒâ€šÃ‚Â¶ÃƒÆ’Ã‚Â©ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢Ãƒâ€šÃ‚Â¿ÃƒÆ’Ã‚Â¥Ãƒâ€šÃ‚Â®Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã‚Â¦Ãƒâ€šÃ‚Â Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¥Ãƒâ€šÃ‚Â¤ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡ÃƒÆ’Ã‚Â¦Ãƒâ€šÃ‚Â³Ãƒâ€šÃ‚Â¨
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  child     User      @relation(fields: [childId], references: [id])
+  pointRule PointRule @relation(fields: [pointRuleId], references: [id])
+}
+
+model PointAccount {
+  id        String   @id @default(uuid())
+  childId   String   @unique
+  balance   Int      @default(0)
+  totalEarned Int    @default(0)
+  totalSpent  Int    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  child        User             @relation(fields: [childId], references: [id])
+  transactions PointTransaction[]
+}
+
+model PointTransaction {
+  id            String          @id @default(uuid())
+  accountId     String
+  type          TransactionType
+  amount        Int
+  balanceAfter  Int
+  sourceType    SourceType
+  sourceId      String?         // ÃƒÆ’Ã‚Â¥ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦Ãƒâ€šÃ‚Â³ÃƒÆ’Ã‚Â¨Ãƒâ€šÃ‚ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚ÂÃƒÆ’Ã‚Â¦Ãƒâ€šÃ‚ÂÃƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â¦Ãƒâ€šÃ‚ÂºÃƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¨Ãƒâ€šÃ‚Â®Ãƒâ€šÃ‚Â°ÃƒÆ’Ã‚Â¥Ãƒâ€šÃ‚Â½ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢IDÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¼Ãƒâ€¹Ã¢â‚¬Â ÃƒÆ’Ã‚Â¥Ãƒâ€šÃ‚Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ PointRecord/Reward/Task ÃƒÆ’Ã‚Â§Ãƒâ€šÃ‚Â­ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¼ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°
+  description   String?
+  createdAt     DateTime        @default(now())
+
+  account PointAccount @relation(fields: [accountId], references: [id])
+}
+
+model Pet {
+  id           String    @id @default(uuid())
+  childId      String    @unique
+  name        String    @default("ÃƒÆ’Ã‚Â¥Ãƒâ€šÃ‚Â°Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¥Ãƒâ€šÃ‚Â®Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â§ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°Ãƒâ€šÃ‚Â©")
+  stage        PetStage  @default(egg)
+  level        Int       @default(1)
+  exp          Int       @default(0)
+  status       PetStatus @default(alive)
+  hunger       Int       @default(80)
+  thirst       Int       @default(80)
+  cleanliness  Int       @default(80)
+  mood         Int       @default(80)
+  health       Int       @default(100)
+  lastDecayAt  DateTime  @default(now())
+  lastFedAt    DateTime?
+  lastWateredAt DateTime?
+  lastCleanedAt DateTime?
+  lastPlayedAt DateTime?
+  totalCareCount Int     @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  child User     @relation(fields: [childId], references: [id])
+  logs  PetLog[]
+}
+
+model PetLog {
+  id        String    @id @default(uuid())
+  petId     String
+  action    PetAction
+  oldValue  Int?
+  newValue  Int?
+  pointsCost Int?
+  description String
+  createdAt DateTime  @default(now())
+
+  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+}
+
+model TaskPlan {
+  id          String     @id @default(uuid())
+  childId     String
+  title       String
+  description String?
+  points      Int        @default(0)
+  scheduledAt DateTime?
+  dueAt       DateTime?
+  frequency   Frequency?
+  enabled     Boolean   @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  child User    @relation(fields: [childId], references: [id])
+  logs  TaskLog[]
+
+  @@index([childId])
+}
+
+model TaskLog {
+  id         String    @id @default(uuid())
+  taskPlanId String?
+  childId    String
+  points     Int       @default(0)
+  note       String?
+  createdAt  DateTime  @default(now())
+
+  taskPlan TaskPlan? @relation(fields: [taskPlanId], references: [id], onDelete: SetNull)
+  child    User     @relation(fields: [childId], references: [id])
+
+  @@index([childId, createdAt])
+  @@index([taskPlanId])
+}
+
+model RewardItem {
+  id          String    @id @default(uuid())
+  familyId    String
+  name        String
+  description String?
+  cost        Int
+  stock       Int?
+  enabled     Boolean   @default(true)
+  imageUrl    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  family  Family      @relation(fields: [familyId], references: [id])
+  redeems RedeemLog[]
+
+  @@index([familyId])
+  @@index([enabled])
+}
+
+model RedeemLog {
+  id           String    @id @default(uuid())
+  childId      String
+  rewardItemId String
+  quantity     Int       @default(1)
+  pointsSpent  Int
+  note         String?
+  createdAt    DateTime  @default(now())
+
+  child      User       @relation(fields: [childId], references: [id])
+  rewardItem RewardItem @relation(fields: [rewardItemId], references: [id], onDelete: Cascade)
+
+  @@index([childId, createdAt])
+  @@index([rewardItemId])
+}
+
+
+
+
+
+
+

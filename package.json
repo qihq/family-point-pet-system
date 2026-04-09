@@ -1,0 +1,48 @@
+{
+  "name": "family-point-pet-system",
+  "version": "0.1.0",
+  "private": true,
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "scripts": {
+    "prisma:generate": "prisma generate",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "prisma:seed": "tsx prisma/seed.ts",
+    "repair:text:dry": "powershell -Command \"$env:DRY=1; node scripts/repair-text.mjs\"",
+    "repair:text": "node scripts/repair-text.mjs",
+    "prisma:migrate": "prisma migrate dev",
+    "dev:rebuild": "node scripts/dev-rebuild.mjs",
+    "dev": "next dev -H 0.0.0.0 -p 3000",
+    "worker:models": "node scripts/model-watcher.mjs",
+    "models:compress:hd": "gltfpack -i public/models/pet.src.glb -o public/models/pet.glb -c -si 0.95",
+    "models:compress:lite": "gltfpack -i public/models/pet.src.glb -o public/models/pet-lite.glb -c -si 0.6",
+    "dev:3100": "next dev -H 0.0.0.0 -p 3100",
+    "predev": "node scripts/sanitize-project.mjs",
+    "prestart": "node scripts/sanitize-project.mjs"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.10.0",
+    "@react-three/drei": "^9.106.0",
+    "@react-three/fiber": "^8.15.14",
+    "jose": "^6.2.2",
+    "next": "14.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "three": "^0.183.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "autoprefixer": "^10.4.27",
+    "prisma": "^5.10.0",
+    "tailwindcss": "^3.4.19",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0",
+    "gltfpack": "^0.21.0",
+    "chokidar": "^3.6.0"
+  }
+}

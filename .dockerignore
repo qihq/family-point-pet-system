@@ -1,0 +1,29 @@
+﻿# dependencies
+node_modules
+.next/cache
+coverage
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+.git
+.idea
+.vscode
+**/*.psd
+**/*.ai
+**/*.sketch
+
+# build artifacts not needed in context
+.tmp
+out
+build
+dist
+
+# exclude local env files
+.env
+.env.*
+
+# keep prisma and migrations
+!prisma/
+!public/
