@@ -1,4 +1,5 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
+import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient, Role } from '@prisma/client';
 import { verifyToken, getTokenFromHeader } from '@/lib/auth';
 import { spendPoints } from '@/server/services/points.service';
@@ -53,11 +54,11 @@ export async function POST(request: NextRequest){
       return { spend, log };
     });
 
-    return NextResponse.json({ success:true, data: { balance: result.spend.balance, redeem: result.log } });
+    revalidateTag('child-stats-'+child.id); return NextResponse.json({ success:true, data: { balance: result.spend.balance, redeem: result.log } });
   }catch(e:any){
     const msg = String(e?.message||'兑换失败');
     if(msg.includes('库存不足')) return NextResponse.json({ success:false, error:'库存不足' }, { status:409 });
     if(msg.includes('余额不足') || msg.includes('积分不足')) return NextResponse.json({ success:false, error:'积分不足' }, { status:409 });
     return NextResponse.json({ success:false, error: '兑换失败' }, { status:400 });
   }
-}
+}// codex-ok: 2026-04-14T12:06:30+08:00

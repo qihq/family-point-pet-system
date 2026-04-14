@@ -1,91 +1,84 @@
-﻿"use client";
+"use client";
 import React, { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import WeeklyCalendar from '@/components/WeeklyCalendar';
-
-type Role = 'parent'|'child'|'admin';
-
-type Task = {
-  id: string;
-  childId?: string;
-  title: string;
-  description?: string | null;
-  points: number;
-  scheduledAt?: string | null;
-  duration?: number | null;
-  frequency?: 'daily'|'weekly'|'monthly'|'once'|'unlimited'|string|null;
-  enabled?: boolean | null;
-};
+import WeeklyCalendar, { CalendarEvent } from '@/components/WeeklyCalendar';
 
 export default function ChildPlansPage(){
-  const [me,setMe] = useState<{role:Role; id:string} | null>(null);
-  const [weekStart,setWeekStart] = useState<Date>(new Date());
-  const [tasks,setTasks] = useState<Task[]>([]);
-  const [pending,setPending] = useState<number>(0);
-  const [loading,setLoading] = useState<boolean>(true);
-  const router = useRouter();
+  const [weekFrom,setWeekFrom] = useState<Date>(new Date());
+  const [events,setEvents] = useState<CalendarEvent[]>([]);
+  const [loading,setLoading] = useState(false);
+  const [tasks,setTasks] = useState<any[]>([]);
+  const [activeDate,setActiveDate] = useState<Date>(new Date());
+  const [toast,setToast] = useState<string>('');
 
-  useEffect(()=>{ (async()=>{
-    try{
-      const r = await fetch('/api/auth/me', { cache:'no-store', credentials:'include' });
-      const d = await r.json(); if(r.ok && d?.user){ setMe({ role:d.user.role as Role, id:d.user.id }); }
-    }catch{}
-  })(); },[]);
-
-  useEffect(()=>{ (async()=>{
+  async function fetchCalendar(from: Date, to: Date){
     setLoading(true);
     try{
-      const rt = await fetch('/api/tasks', { cache:'no-store', credentials:'include' });
-      const dt = await rt.json(); if(rt.ok && dt.success) setTasks(dt.data||[]);
+      const url = `/api/calendar?from=${from.toISOString().slice(0,10)}&to=${to.toISOString().slice(0,10)}`;
+      const r = await fetch(url, { cache:'no-store', credentials:'include' });
+      const d = await r.json(); if(r.ok && d.success){ setEvents(d.data||[]); }
     }finally{ setLoading(false); }
-    try{
-      const rp = await fetch('/api/point-records?status=pending&pageSize=1', { cache:'no-store', credentials:'include' });
-      const dp = await rp.json(); const total = dp?.data?.pagination?.total ?? 0; setPending(Number(total)||0);
-    }catch{ setPending(0); }
+  }
+
+  useEffect(()=>{ (async()=>{
+    try{ const r = await fetch('/api/tasks', { cache:'no-store', credentials:'include' }); const d = await r.json(); if(r.ok && d.success) setTasks(d.data||[]); }catch{}
   })(); },[]);
 
-  const filtered = useMemo(()=> tasks.filter(t=> t.enabled!==false), [tasks]);
-  const isChild = me?.role === 'child';
+  const dayTasks = useMemo(()=> tasks.filter((t:any)=> t.enabled!==false), [tasks]);
+
+  async function completeTask(taskId: string){
+    try{
+      const r = await fetch(`/api/tasks/${taskId}/complete`, { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body:'{}' });
+      const d = await r.json(); if(!r.ok || !d.success){ alert(d.error||'完成失败'); return; }
+      setToast(d.data?.status==='pending'? '已提交审核' : `+${d.data?.points||0} 积分`);
+      // 重新拉取本周日历，驱动热力值更新
+      const from = startOfWeek(activeDate); const to = endOfWeek(activeDate);
+      await fetchCalendar(from,to);
+    }catch(e:any){ alert(e.message||'网络错误'); }
+  }
+
+  function startOfWeek(d:Date){ const x=new Date(d); const w=(x.getDay()+6)%7; x.setHours(0,0,0,0); x.setDate(x.getDate()-w); return x; }
+  function endOfWeek(d:Date){ const s=startOfWeek(d); const e=new Date(s); e.setDate(s.getDate()+6); e.setHours(23,59,59,999); return e; }
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-6">
       <div className="max-w-5xl mx-auto space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-[var(--text)]">学习计划</h1>
-          {!isChild && (
-            <div className="text-sm text-gray-500">（孩子侧只读视图）</div>
+          <h1 className="text-2xl font-bold text-[var(--text)]">{`孩子计划`}</h1>
+        </div>
+
+        <WeeklyCalendar
+          variant="child"
+          events={events}
+          onWeekChange={(from,to)=>{ setWeekFrom(from); fetchCalendar(from,to); }}
+          onDayClick={(date)=> setActiveDate(date)}
+        />
+
+        {/* 点击某天后展开任务列表（简化：列出所有启用任务，演示完成联动） */}
+        <div className="bg-white rounded-xl shadow-sm p-3">
+          <div className="text-sm text-gray-600 mb-2">{activeDate.toLocaleDateString()} {`的任务`}</div>
+          {dayTasks.length===0? (
+            <div className="text-gray-500 text-sm">{`暂无任务`}</div>
+          ) : (
+            <div className="space-y-2">
+              {dayTasks.map((t:any)=> (
+                <div key={t.id} className="flex items-center justify-between border rounded-lg px-3 py-2">
+                  <div>
+                    <div className="text-sm font-medium">{t.title}</div>
+                    <div className="text-[11px] text-gray-500">{`${t.frequency||'once'} · +${t.points||0}${t.needApproval? ' · 待审核':''}`}</div>
+                  </div>
+                  <button onClick={()=>completeTask(t.id)} className="px-2 py-1 rounded bg-amber-600 text-white hover:bg-amber-700">{`完成`}</button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
-        {pending>0 && (
-          <button onClick={()=> router.push('/child/records?tab=records&status=pending')} className="w-full text-left px-4 py-3 rounded-lg bg-orange-50 border border-orange-200 text-orange-800 flex items-center justify-between">
-            <div>有 <span className="font-semibold">{pending}</span> 条打卡正在审核</div>
-            <span className="text-orange-600">查看</span>
-          </button>
-        )}
-
-        <WeeklyCalendar weekStart={weekStart} onChange={setWeekStart} dayBadge={()=>null} />
-
-        {loading? (
-          <div>加载中…</div>
-        ):(
-          <div className="space-y-3">
-            {filtered.length===0? (
-              <div className="text-gray-600">暂无学习计划</div>
-            ) : filtered.map(t=> (
-              <div key={t.id} className="bg-white rounded-lg shadow-sm p-4 flex items-center justify-between">
-                <div>
-                  <div className="font-semibold text-gray-800">{t.title}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{t.scheduledAt? new Date(t.scheduledAt).toLocaleString(): '任意时间'} · {t.duration||30} 分钟 · {t.frequency||'once'}</div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-amber-700 font-semibold">+{t.points||0}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+        {toast && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black/80 text-white px-3 py-1.5 rounded-full text-sm" onAnimationEnd={()=>setToast('')}>{toast}</div>
         )}
       </div>
     </div>
   );
 }
+
+// codex-ok: 2026-04-14T12:23:30+08:00

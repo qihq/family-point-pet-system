@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect } from 'react';
 import { PointsType, Frequency } from '@prisma/client';
 import TargetChildrenSelect from './target-children-select';
@@ -215,7 +215,7 @@ export default function PointRuleForm({ initialData, onSubmit, onCancel, isEdit 
             <option key={freq.value} value={freq.value}>{freq.label}</option>
           ))}
         </select>
-      </div>
+      </div>`r`n      <p className="mt-1 text-xs text-gray-500">一次表示“每个孩子仅能完成一次”，不固定日期；如需指定日期/时间，请在“学习计划”中新建一次性计划。</p>
 
       {/* 周期内最大次数 */}
       {formData.frequency !== Frequency.unlimited && (
@@ -282,4 +282,4 @@ export default function PointRuleForm({ initialData, onSubmit, onCancel, isEdit 
       </div>
     </form>
   );
-}
+}// codex-ok: 2026-04-14T12:05:00+08:00
