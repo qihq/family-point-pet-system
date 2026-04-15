@@ -1,4 +1,5 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+﻿import { revalidateTag } from 'next/cache';
+import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient, Role, RecordStatus, TransactionType } from '@prisma/client';
 import { verifyToken, getTokenFromHeader } from '@/lib/auth';
 
@@ -51,6 +52,9 @@ export async function POST(request: NextRequest, { params }:{ params:{ id:string
         await tx.pointAccount.update({ where:{ id: acc.id }, data:{ balance: newBalance, totalEarned: (acc.totalEarned||0)+points } });
         return { updated, balance:newBalance };
       });
+      await prisma.taskLog.create({ data: { childId: rec.childId, points, note: 'rule-approve;rule=' + String(rec.pointRuleId || '') } });
+      await prisma.user.update({ where: { id: rec.childId }, data: { totalEarnedPoints: { increment: points } } });
+      revalidateTag('child-stats-'+rec.childId);
       return NextResponse.json({ success:true, data:{ record: result.updated, balance: result.balance } });
     }
 

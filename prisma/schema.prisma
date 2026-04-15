@@ -75,6 +75,8 @@ model Family {
   users      User[]
   pointRules PointRule[]
   rewardItems RewardItem[]
+  recurringTasks RecurringTask[]
+  pushSubscriptions PushSubscription[]
 }
 
 model User {
@@ -101,6 +103,7 @@ model User {
   taskPlans   TaskPlan[]
   taskLogs    TaskLog[]
   redeemLogs  RedeemLog[]
+  pushSubscriptions PushSubscription[]
 }
 
 
@@ -229,6 +232,9 @@ model TaskPlan {
   enabled     Boolean   @default(true)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+  category    String?   // "study" | "exercise" | "chore"
+  durationMin Int?      // 预计时长（分钟）
+  needApproval Boolean  @default(false)  // 是否需要家长审核
 
   child User    @relation(fields: [childId], references: [id])
   logs  TaskLog[]
@@ -242,6 +248,7 @@ model TaskLog {
   childId    String
   points     Int       @default(0)
   note       String?
+category    String?   // 完成时记录的分类，来自 TaskPlan.category
   createdAt  DateTime  @default(now())
 
   taskPlan TaskPlan? @relation(fields: [taskPlanId], references: [id], onDelete: SetNull)
@@ -285,10 +292,36 @@ model RedeemLog {
   @@index([childId, createdAt])
   @@index([rewardItemId])
 }
+// codex-ok: 2026-04-09T16:03:24
 
+model RecurringTask {
+  id          String   @id @default(cuid())
+  familyId    String
+  name        String
+  description String?
+  points      Int
+  frequency   String   // "daily" | "weekly"
+  weekdays    String?  // JSON array, e.g. "[1,3,5]" for Mon/Wed/Fri, null = every day
+  icon        String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  family      Family   @relation(fields: [familyId], references: [id])
+}
+// codex-ok: 2026-04-10T14:05:00+08:00
 
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  familyId  String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
 
+  user   User   @relation(fields: [userId], references: [id])
+  family Family @relation(fields: [familyId], references: [id])
 
-
-
-
+  @@index([familyId])
+  @@index([userId])
+}
+// codex-ok: 2026-04-10T15:35:00+08:00

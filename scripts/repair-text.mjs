@@ -1,4 +1,4 @@
-﻿import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -84,3 +84,26 @@ async function main(){
 }
 
 main().catch(e=>{ console.error(e); process.exit(1); }).finally(()=> prisma.$disconnect());
+
+async function repairTaskPlan(){
+  const rows = await prisma.taskPlan.findMany({});
+  let changed = 0;
+  for(const r of rows){
+    const title = fixMojibake(r.title||'');
+    const desc = fixMojibake(r.description||'');
+    if(title !== r.title || desc !== (r.description||'')){
+      await prisma.taskPlan.update({ where:{ id: r.id }, data:{ title, description: desc || null } });
+      changed++;
+    }
+  }
+  return changed;
+}
+
+(async()=>{
+  const dry = process.env.DRY === '1' || process.env.DRY === 'true';
+  if(!dry){
+    const n = await repairTaskPlan();
+    console.log('Repaired TaskPlan rows:', n);
+  }
+})();
+// codex-ok: 2026-04-14T12:35:00+08:00

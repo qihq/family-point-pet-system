@@ -24,6 +24,7 @@ export default function ParentHome(){
   const router = useRouter();
   const [tab, setTab] = useState<'规则'|'孩子'|'宠物'|'报告'>('规则');
   const [pendingCount, setPendingCount] = useState<number>(0);
+  const [pendingItems, setPendingItems] = useState<any[]>([]);
 
   const [rules, setRules] = useState<Rule[]>([]);
   const [kids, setKids] = useState<Kid[]>([]);
@@ -34,14 +35,15 @@ export default function ParentHome(){
 
   async function refreshPending(){
     try{
-      const r = await fetch('/api/point-records?status=pending&pageSize=1', { cache:'no-store', credentials:'include' });
+      const r = await fetch('/api/tasks/pending', { cache:'no-store', credentials:'include' });
       const d = await r.json().catch(()=>null);
-      const total = d?.data?.pagination?.total ?? 0;
-      setPendingCount(Number(total)||0);
-    }catch{ setPendingCount(0); }
+      const list = Array.isArray(d?.data)? d.data : [];
+      setPendingCount(list.length||0);
+      setPendingItems(list.slice(0,3));
+    }catch{ setPendingCount(0); setPendingItems([]); }
   }
 
-  async function loadRules(){
+async function loadRules(){
     setLoading(true); setError("");
     try{
       const r = await fetch('/api/point-rules', { cache:'no-store', credentials:'include' });
@@ -73,6 +75,7 @@ export default function ParentHome(){
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-[var(--text)]">家长首页</h1>
           <Tabs tabs={tabs as unknown as string[]} active={tab} onChange={(t)=>setTab(t as any)} />
+          <a href="/parent/children" className="ml-2 px-3 py-2 rounded bg-[var(--primary)] text-white hover:bg-[var(--primary-600)]">新增孩子</a>
         </div>
 
         {pendingCount>0 && (

@@ -1,0 +1,15 @@
+:root[data-theme="parent"] {
+  --p-bg:       #F7F6F3;
+  --p-card:     #FFFFFF;
+  --p-text:     #37352F;
+  --p-muted:    #9B9A97;
+  --p-border:   #E9E9E7;
+  --p-accent:   #2383E2;
+  --p-success:  #0F7B6C;
+  --p-warning:  #DFAB01;
+  --p-danger:   #E03E3E;
+  --p-radius:   8px;
+  --font-body:  'Inter', -apple-system, sans-serif;
+}
+
+/* codex-ok: 2026-04-10T12:40:00+08:00 */

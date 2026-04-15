@@ -1,7 +1,8 @@
-﻿import type { Config } from 'tailwindcss'
+import type { Config } from 'tailwindcss'
 
 const config: Config = {
   content: [
+    './styles/**/*.css',
     './app/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
     './server/**/*.{ts,tsx}',
@@ -44,3 +45,6 @@ const config: Config = {
 }
 
 export default config
+
+
+// codex-ok: 2026-04-10T11:10:00+08:00

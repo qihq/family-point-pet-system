@@ -1,0 +1,15 @@
+:root[data-theme="admin"] {
+  --a-bg:      #0A0A0A;
+  --a-card:    #111111;
+  --a-border:  #222222;
+  --a-text:    #EDEDED;
+  --a-muted:   #888888;
+  --a-accent:  #3B82F6;
+  --a-success: #22C55E;
+  --a-warning: #F59E0B;
+  --a-danger:  #EF4444;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-body: 'Inter', sans-serif;
+}
+
+/* codex-ok: 2026-04-10T13:25:00+08:00 */

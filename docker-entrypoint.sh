@@ -1,19 +1,14 @@
 #!/bin/sh
 set -eu
 
-if [ -n "${DATABASE_URL:-}" ]; then
-  echo "[entrypoint] Running Prisma migrate deploy..."
-  npx prisma migrate deploy
-  if [ "${STARTUP_SEED:-false}" = "true" ]; then
-    echo "[entrypoint] Seeding database (STARTUP_SEED=true)..."
-    npx tsx prisma/seed.ts || echo "[entrypoint] Seed finished (ignore if already seeded)"
-  fi
-else
-  echo "[entrypoint] DATABASE_URL not set; skipping migrations/seeding"
+# If a command is provided (e.g., "npm run dev"), run it directly for dev compose
+if [ "$#" -gt 0 ]; then
+  echo "[entrypoint] Exec command: $@"
+  exec "$@"
 fi
 
+# Otherwise, run in production start mode (no migrations to avoid dev volume conflicts)
 PORT="${PORT:-3000}"
 export NODE_ENV=production
-
-echo "[entrypoint] Starting Next.js on port ${PORT}"
+echo "[entrypoint] Starting Next.js on port ${PORT} (prod)"
 exec node node_modules/next/dist/bin/next start -p "${PORT}"

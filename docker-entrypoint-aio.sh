@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 set -euo pipefail
 
 DATA_DIR="/var/lib/postgresql/data"
@@ -44,7 +44,10 @@ export DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.
 # Run migrations and optional seed
 if [ -n "${DATABASE_URL:-}" ]; then
   log "Running Prisma migrate deploy"
-  npx prisma migrate deploy || { log "migrate deploy failed"; exit 1; }
+  if ! npx prisma migrate deploy; then
+  log "migrate deploy failed, falling back to prisma db push (dev-only)"
+  npx prisma db push --accept-data-loss || { log "db push failed"; exit 1; }
+fi
   if [ "${STARTUP_SEED:-false}" = "true" ]; then
     log "Seeding database (STARTUP_SEED=true)"
     npx tsx prisma/seed.ts || true
@@ -52,4 +55,19 @@ if [ -n "${DATABASE_URL:-}" ]; then
 fi
 
 log "Starting Next.js on port ${PORT:-3000}"
+# Light-weight daily cron without extra deps: trigger at 00:05 UTC
+(
+  cron_daily_loop() {
+    while true; do
+      NOW=$(date -u +"%H:%M");
+      if [ "$NOW" = "00:05" ]; then
+        node -e "require('http').get('http://127.0.0.1:3000/api/cron/daily').on('error',()=>{});" >/dev/null 2>&1 || true
+        sleep 60
+      else
+        sleep 20
+      fi
+    done
+  }
+  cron_daily_loop &
+) &
 exec node node_modules/next/dist/bin/next start -p "${PORT:-3000}"

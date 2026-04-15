@@ -1,4 +1,5 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+﻿import { sendReviewNotificationToFamily } from '@/lib/webpush';
+import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient, Role, RecordStatus } from '@prisma/client';
 import { verifyToken, getTokenFromHeader } from '@/lib/auth';
 
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest) {
           points: 0,
         },
       });
+      try { await sendReviewNotificationToFamily(child.familyId, child.name || '', rule.name); } catch {}
       return NextResponse.json({ success: true, data: record, message: '已提交，待审核' });
     }
 
@@ -151,3 +153,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: error.message || '服务器错误' }, { status: 500 });
   }
 }
+// codex-ok: 2026-04-13T09:19:21+08:00

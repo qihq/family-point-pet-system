@@ -74,3 +74,21 @@ export function getTokenFromHeader(authHeader?: string | null): string | null {
   }
   return authHeader.substring(7);
 }
+// In-memory rate limiter for PIN login: 10 attempts per 5 minutes per IP
+const pinAttempts = new Map<string, { count: number; resetAt: number }>();
+
+export function checkPinRateLimit(ip: string, windowMs = 5 * 60 * 1000, limit = 10) {
+  const now = Date.now();
+  const entry = pinAttempts.get(ip);
+  if (!entry || now >= entry.resetAt) {
+    pinAttempts.set(ip, { count: 1, resetAt: now + windowMs });
+    return { ok: true, remaining: limit - 1, resetAt: now + windowMs };
+  }
+  if (entry.count >= limit) {
+    return { ok: false, remaining: 0, retryAfterMs: Math.max(0, entry.resetAt - now), resetAt: entry.resetAt };
+  }
+  entry.count += 1;
+  return { ok: true, remaining: limit - entry.count, resetAt: entry.resetAt };
+}
+
+// codex-ok: 2026-04-10T10:38:00+08:00

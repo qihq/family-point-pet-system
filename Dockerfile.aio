@@ -1,5 +1,5 @@
 ﻿# All-in-One: Next.js app + PostgreSQL (Debian Bookworm)
-FROM node:20-bookworm AS builder
+FROM mcr.microsoft.com/devcontainers/javascript-node:20-bookworm AS builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --no-audit --no-fund
@@ -8,7 +8,7 @@ RUN npx prisma generate
 COPY . .
 RUN npm run build
 
-FROM node:20-bookworm-slim AS runner
+FROM mcr.microsoft.com/devcontainers/javascript-node:20-bookworm AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     PORT=3000 \
@@ -30,6 +30,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/lib ./lib
 
 COPY docker-entrypoint-aio.sh /app/docker-entrypoint-aio.sh
 RUN sed -i 's/\r$//' /app/docker-entrypoint-aio.sh && chmod +x /app/docker-entrypoint-aio.sh

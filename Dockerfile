@@ -1,8 +1,8 @@
-﻿FROM node:20-alpine3.18 AS builder
+FROM node:20-bullseye-slim AS builder
 WORKDIR /app
 
 # System deps for Prisma on Alpine
-RUN apk add --no-cache openssl1.1-compat
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Install deps (cache-friendly)
 COPY package*.json ./
@@ -17,12 +17,12 @@ COPY . .
 RUN npm run build
 
 # Runtime image
-FROM node:20-alpine3.18 AS runner
+FROM node:20-bullseye-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
 # Runtime deps for Prisma on Alpine
-RUN apk add --no-cache openssl1.1-compat
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Copy app artifacts
 COPY --from=builder /app/package*.json ./
@@ -35,5 +35,6 @@ RUN sed -i 's/\r$//' /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoin
 
 EXPOSE 3000
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
+
 
 

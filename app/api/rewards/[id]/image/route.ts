@@ -1,8 +1,10 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient, Role } from '@prisma/client';
 import { verifyToken, getTokenFromHeader } from '@/lib/auth';
 import { promises as fs } from 'node:fs';
 import { join, extname } from 'node:path';
+
+import crypto from 'node:crypto';
 
 const prisma = new PrismaClient();
 
@@ -42,3 +44,5 @@ export async function POST(request: NextRequest, { params }:{ params:{ id:string
   const updated = await prisma.rewardItem.update({ where:{ id }, data:{ imageUrl: url } });
   return NextResponse.json({ success:true, data: updated });
 }
+
+// codex-ok: 2026-04-13T16:10:00+08:00

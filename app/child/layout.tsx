@@ -1,11 +1,18 @@
-"use client";
-import { useEffect } from "react";
+import type { ReactNode } from 'react';
+import "@fontsource/nunito/700.css";
+import "@fontsource/baloo-2/800.css";
+import "@/styles/child-theme.css";
+import ChildBottomNav from "@/components/child/ChildBottomNav";
 
-export default function ChildLayout({ children }: { children: React.ReactNode }) {
-  useEffect(() => {
-    const el = document.documentElement;
-    el.setAttribute("data-mode", "kid");
-    return () => { el.removeAttribute("data-mode"); };
-  }, []);
-  return <>{children}</>;
+export default function ChildLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="zh-CN" data-theme="child">
+      <body style={{ fontFamily: "var(--font-body)" }}>
+        {children}
+        <ChildBottomNav />
+      </body>
+    </html>
+  );
 }
+
+// codex-ok: 2026-04-10T11:07:00+08:00

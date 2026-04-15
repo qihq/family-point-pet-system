@@ -121,8 +121,8 @@ export default function ParentPointRulesPage(){
         )}
 
         {showForm && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5">
+          <div className="fixed inset-0 bg-black/40 flex items-start justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[80vh] overflow-y-auto">
               <PointRuleForm initialData={editing||undefined} onSubmit={submit} onCancel={()=>{ setShowForm(false); setEditing(null); }} isEdit={!!editing} />
             </div>
           </div>
@@ -131,3 +131,5 @@ export default function ParentPointRulesPage(){
     </div>
   );
 }
+
+// codex-ok: 2026-04-13T10:37:11+08:00

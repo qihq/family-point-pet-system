@@ -1,0 +1,10 @@
+FROM fp-aio:latest AS base
+WORKDIR /app
+# refresh app build artifacts from the newly built runner image
+COPY --from=family-point:openssl /app/.next ./.next
+COPY --from=family-point:openssl /app/node_modules ./node_modules
+COPY --from=family-point:openssl /app/public ./public
+COPY --from=family-point:openssl /app/prisma ./prisma
+# refresh entrypoint to cross-distro helper (su-exec/runuser)
+COPY docker-entrypoint-aio-alpine.sh /app/docker-entrypoint-aio-alpine.sh
+RUN sed -i 's/\r$//' /app/docker-entrypoint-aio-alpine.sh && chmod +x /app/docker-entrypoint-aio-alpine.sh

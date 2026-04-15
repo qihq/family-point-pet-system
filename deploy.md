@@ -1,4 +1,4 @@
-﻿# 部署指南（群晖 DSM / Docker）
+# 部署指南（群晖 DSM / Docker）
 
 本文档覆盖两种方式：导入我提供的 AIO 镜像 tar，或从源码自行构建。
 
@@ -51,3 +51,19 @@ docker build -t family-point-allinone:latest -f Dockerfile.aio.alpine.local .
 - 登录失败：确认未携带 `STARTUP_SEED` 再次覆盖；如需重置用新容器+空数据卷测试。
 - Prisma 报错：日志中若 `migrate deploy failed` 随后会自动 `prisma db push`，属预期兜底。
 
+## 推送通知（可选）
+
+Web Push 采用 VAPID，需配置以下环境变量（服务器端）：
+- `VAPID_PUBLIC_KEY`
+- `VAPID_PRIVATE_KEY`
+- `VAPID_EMAIL`（联系邮箱，用于 VAPID 标识）
+
+生成密钥对（本地执行）：
+
+```
+npx web-push generate-vapid-keys
+```
+
+将生成的 public/private key 分别写入环境变量。部署后，家长端会自动注册 Service Worker 并订阅，订阅信息保存于数据库 `PushSubscription` 表。
+
+触发路径：孩子提交需要审核的任务时，服务器调用 Web Push 通知家长前往审核中心。

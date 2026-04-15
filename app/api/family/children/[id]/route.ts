@@ -1,8 +1,9 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { getTokenFromHeader, verifyToken } from '@/lib/auth';
 import { promises as fs } from 'node:fs';
 import { join, extname } from 'node:path';
+import crypto from 'node:crypto';
 
 const prisma = new PrismaClient();
 
@@ -121,3 +122,17 @@ export async function PUT(request: NextRequest, ctx: { params: { id: string } })
     return NextResponse.json({ success:false, error: e?.message || '更新失败' }, { status:500 });
   }
 }
+
+export async function DELETE(request: NextRequest, { params }:{ params:{ id:string } }){
+  try{
+    const auth = await ensureParentOrAdmin(request);
+    if(!auth.ok) return NextResponse.json({ success:false, error:auth.error }, { status:auth.status });
+    const id = params.id;
+    const existing = await prisma.user.findFirst({ where:{ id, role: 'child' as any } });
+    if(!existing) return NextResponse.json({ success:false, error:'孩子不存在' }, { status:404 });
+    await prisma.user.update({ where:{ id }, data:{ isDeleted: true, deletedAt: new Date() } });
+    return NextResponse.json({ success:true });
+  }catch(e:any){ return NextResponse.json({ success:false, error: e?.message||'删除失败' }, { status:500 }); }
+}
+
+// codex-ok: 2026-04-13T16:12:00+08:00

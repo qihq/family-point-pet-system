@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
@@ -7,7 +7,7 @@ export function middleware(request: NextRequest) {
   if (
     !pathname.startsWith('/_next/') &&
     !pathname.startsWith('/api/') &&
-    !pathname.startsWith('/static/') &&
+    !pathname.startsWith('/static/') && !pathname.startsWith('/uploads/') && pathname !== '/sw.js' &&
     !pathname.endsWith('.json')
   ) {
     res.headers.set('Content-Type', 'text/html; charset=utf-8');
@@ -20,3 +20,4 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: ['/((?!_next/|api/|favicon.ico|static/).*)'],
 };
+// codex-ok: 2026-04-13T16:49:53

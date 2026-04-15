@@ -44,8 +44,10 @@ export async function POST(request: NextRequest){
     dueAt: body.dueAt ? new Date(body.dueAt) : null,
     frequency: body.frequency as Frequency | null,
     enabled: body.enabled !== false,
-  };
-  // 孩子创建时自动指向本人
+    category: body.category || null,
+    durationMin: (body.durationMin===undefined||body.durationMin===null||body.durationMin==='')? null : Number(body.durationMin),
+    needApproval: (body.needApproval !== false),
+  };// 孩子创建时自动指向本人
   if(!data.childId && payload.role === Role.child){ data.childId = payload.userId; }
   if(!data.title) return NextResponse.json({ success:false, error:'title 必填' }, { status:400 });
   if(!data.childId) return NextResponse.json({ success:false, error:'childId 必填' }, { status:400 });
@@ -55,3 +57,5 @@ export async function POST(request: NextRequest){
   const created = await prisma.taskPlan.create({ data });
   return NextResponse.json({ success:true, data: created });
 }
+
+// codex-ok: 2026-04-13T18:07:00+08:00

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient, Role, Frequency } from '@prisma/client';
 import { verifyToken, getTokenFromHeader } from '@/lib/auth';
 
@@ -31,7 +31,11 @@ export async function PATCH(request: NextRequest, { params }:{ params:{ id:strin
     if(body.points !== undefined) data.points = Number(body.points||0);
     if(body.scheduledAt !== undefined) data.scheduledAt = body.scheduledAt ? new Date(body.scheduledAt) : null;
     if(body.dueAt !== undefined) data.dueAt = body.dueAt ? new Date(body.dueAt) : null;
-    if(body.frequency !== undefined) data.frequency = body.frequency as Frequency | null;
+    if(body.frequency !== undefined){ const v=String(body.frequency||'').toLowerCase(); if(["daily","weekly","monthly","once","unlimited"].includes(v)){ (data as any).frequency = v as any; } }
+    
+    if(body.category !== undefined) data.category = body.category || null;
+    if(body.durationMin !== undefined) data.durationMin = (body.durationMin===null||body.durationMin==='')? null : Number(body.durationMin);
+    if(body.needApproval !== undefined) data.needApproval = !!body.needApproval;
     if(body.enabled !== undefined) data.enabled = !!body.enabled;
     if(Object.keys(data).length===0){ return NextResponse.json({ success:false, error:'无更新字段' }, { status:400 }); }
     const updated = await prisma.taskPlan.update({ where:{ id }, data });
@@ -58,3 +62,4 @@ export async function DELETE(request: NextRequest, { params }:{ params:{ id:stri
     return NextResponse.json({ success:false, error: e.message||'服务器错误' }, { status:500 });
   }
 }
+// codex-ok: 2026-04-13T10:36:49+08:00

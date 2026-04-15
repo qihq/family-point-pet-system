@@ -1,0 +1,28 @@
+@import "@fontsource/nunito/700.css";
+@import "@fontsource/baloo-2/800.css";
+
+:root[data-theme="child"] {
+  --c-yellow:  #FFD93D;
+  --c-orange:  #FF6B35;
+  --c-green:   #4ECDC4;
+  --c-purple:  #A78BFA;
+  --c-pink:    #F472B6;
+  --c-blue:    #60A5FA;
+  --c-bg:      #FFF9F0;
+  --c-card:    #FFFFFF;
+  --c-text:    #2D2A3D;
+  --c-muted:   #9794AA;
+  --c-radius:  20px;
+  --c-shadow:  0 4px 20px rgba(0,0,0,0.08);
+  --font-display: 'Baloo 2', cursive;
+  --font-body:    'Nunito', sans-serif;
+}
+
+/* codex-ok: 2026-04-10T11:05:00+08:00 */
+/* Animations & helpers */
+@keyframes pet-breathe { 0%,100%{ transform: scale(1);} 50%{ transform: scale(1.04);} }
+@keyframes shimmer { 0%{ background-position: 200% center;} 100%{ background-position: -200% center;} }
+.progress-shimmer { background-size: 200% 100%; animation: shimmer 2s linear infinite; }
+@keyframes pts-fly { 0%{ opacity:1; transform: translateY(0) scale(1);} 60%{ opacity:1; transform: translateY(-60px) scale(1.2);} 100%{ opacity:0; transform: translateY(-100px) scale(0.8);} }
+.pts-pop { position: fixed; font-family: var(--font-display); font-size: 22px; font-weight: 900; color: #FF6B35; pointer-events: none; z-index: 9999; animation: pts-fly 1.4s ease forwards; }
+/* codex-ok: 2026-04-10T11:45:00+08:00 */

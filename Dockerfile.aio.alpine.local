@@ -11,7 +11,8 @@ COPY --from=postgres:16-alpine /usr/share/icu/ /usr/share/icu/
 COPY --from=postgres:16-alpine /usr/share/zoneinfo/ /usr/share/zoneinfo/
 
 # Create postgres user and data dir
-RUN addgroup -S postgres && adduser -S -G postgres postgres && \
+RUN apk add --no-cache su-exec wget openssl1.1-compat && \
+    addgroup -S postgres && adduser -S -G postgres postgres && \
     mkdir -p /var/lib/postgresql/data && chown -R postgres:postgres /var/lib/postgresql
 
 ENV NODE_ENV=production \
@@ -27,3 +28,5 @@ EXPOSE 3000
 ENTRYPOINT ["/app/docker-entrypoint-aio-alpine.sh"]
 
 
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD wget -qO- http://localhost:3000/api/health || exit 1

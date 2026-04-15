@@ -1,4 +1,4 @@
-﻿# dependencies
+# dependencies
 node_modules
 .next/cache
 coverage
@@ -27,3 +27,5 @@ dist
 # keep prisma and migrations
 !prisma/
 !public/
+outputs
+outputs/**

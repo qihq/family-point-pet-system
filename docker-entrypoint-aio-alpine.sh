@@ -1,6 +1,20 @@
 #!/bin/sh
 set -eux
 
+# helper to run as postgres on both Alpine (su-exec) and Debian (runuser)
+as_pg() {
+  if command -v su-exec >/dev/null 2>&1; then
+    su-exec postgres "$@"
+    return
+  fi
+  if command -v runuser >/dev/null 2>&1; then
+    runuser -u postgres -- "$@"
+  else
+    echo '[aio] WARN: no su-exec/runuser; running as root'
+    "$@"
+  fi
+}
+
 DATA_DIR="/var/lib/postgresql/data"
 export PATH="/usr/local/bin:$PATH"
 export LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH:-}"
@@ -32,13 +46,13 @@ fi
 
 if [ ! -s "$DATA_DIR/PG_VERSION" ]; then
   log "Initializing PostgreSQL cluster at $DATA_DIR"
-  su-exec postgres initdb -D "$DATA_DIR" -E UTF8 >/dev/null
+  as_pg initdb -D "$DATA_DIR" -E UTF8 >/dev/null
 fi
 
-su-exec postgres pg_ctl -D "$DATA_DIR" -o "-c listen_addresses=localhost -p 5432" -w start >/dev/null
-trap 'log "Stopping PostgreSQL"; su-exec postgres pg_ctl -D "$DATA_DIR" -m fast stop >/dev/null || true' EXIT
+as_pg pg_ctl -D "$DATA_DIR" -o "-c listen_addresses=localhost -p 5432" -w start >/dev/null
+trap 'log "Stopping PostgreSQL"; as_pg pg_ctl -D "$DATA_DIR" -m fast stop >/dev/null || true' EXIT
 
-psql_cmd(){ su-exec postgres psql -v ON_ERROR_STOP=1 -At -c "$1"; }
+psql_cmd(){ as_pg psql -v ON_ERROR_STOP=1 -At -c "$1"; }
 
 EXISTS_USER=$(psql_cmd "SELECT 1 FROM pg_roles WHERE rolname='${POSTGRES_USER}'" || true)
 if [ -z "$EXISTS_USER" ]; then
@@ -61,4 +75,18 @@ if [ "${STARTUP_SEED:-false}" = "true" ]; then
 fi
 
 log "Starting Next.js on port ${PORT:-3000}"
+(
+  cron_daily_loop() {
+    while true; do
+      NOW=$(date -u +"%H:%M");
+      if [ "$NOW" = "00:05" ]; then
+        node -e "require('http').get('http://127.0.0.1:3000/api/cron/daily').on('error',()=>{});" >/dev/null 2>&1 || true
+        sleep 60
+      else
+        sleep 20
+      fi
+    done
+  }
+  cron_daily_loop &
+) &
 exec node node_modules/next/dist/bin/next start -p "${PORT:-3000}"

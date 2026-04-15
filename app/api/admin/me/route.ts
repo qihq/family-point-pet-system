@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, Role } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { verifyToken, getTokenFromHeader } from '@/lib/auth';
 
 const prisma = new PrismaClient();
@@ -7,10 +7,10 @@ const prisma = new PrismaClient();
 async function ensureAdmin(request: NextRequest){
   const authHeader = request.headers.get('authorization');
   const token = getTokenFromHeader(authHeader) || request.cookies.get('token')?.value || '';
-  if(!token) return { ok:false as const, status:401, error:'æœªç™»å½•' };
+  if(!token) return { ok:false as const, status:401, error:'未登录' };
   const payload = await verifyToken(token);
-  if(!payload) return { ok:false as const, status:401, error:'ç™»å½•å·²å¤±æ•ˆ' };
-  if(String((payload as any).role||'').toLowerCase() !== 'admin') return { ok:false as const, status:403, error:'éœ€è¦ç®¡ç†å‘˜æƒé™' };
+  if(!payload) return { ok:false as const, status:401, error:'登录已失效' };
+  if(String((payload as any).role||'').toLowerCase() !== 'admin') return { ok:false as const, status:403, error:'需要管理员权限' };
   return { ok:true as const, payload };
 }
 
@@ -39,10 +39,12 @@ export async function POST(request: NextRequest){
   const body = await request.json();
   const oldPassword = String(body.oldPassword||'');
   const newPassword = String(body.newPassword||'');
-  if(!newPassword) return NextResponse.json({ success:false, error:'æ–°å¯†ç ä¸èƒ½ä¸ºç©º' }, { status:400 });
+  if(!newPassword) return NextResponse.json({ success:false, error:'新密码不能为空' }, { status:400 });
   const u = await prisma.user.findUnique({ where:{ id: auth.payload.userId } });
-  if(!u) return NextResponse.json({ success:false, error:'ç”¨æˆ·ä¸å­˜åœ¨' }, { status:404 });
-  if(u.password && u.password!==oldPassword) return NextResponse.json({ success:false, error:'æ—§å¯†ç ä¸æ­£ç¡®' }, { status:400 });
+  if(!u) return NextResponse.json({ success:false, error:'用户不存在' }, { status:404 });
+  if(u.password && u.password!==oldPassword) return NextResponse.json({ success:false, error:'旧密码不正确' }, { status:400 });
   await prisma.user.update({ where:{ id: u.id }, data:{ password:newPassword } });
   return NextResponse.json({ success:true });
 }
+
+// codex-ok: 2026-04-13T18:06:00+08:00
