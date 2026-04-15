@@ -99,7 +99,7 @@ export default function ChildTasksPage(){
                     <div className="font-semibold text-gray-800">{r.name}</div>
                     <div className="text-xs text-gray-500 mt-0.5">{r.description||'-'}</div>
                   </div>
-                  <button onClick={()=>submitRule(r)} className="px-3 py-1.5 rounded bg-[var(--primary)] text-white hover:bg-[var(--primary-600)]">提交</button>
+                  <button onClick={()=>submitRule(r)} className="rounded px-3 py-1.5 text-white transition hover:bg-[var(--primary-700)] hover:text-white" style={{ background: "var(--primary)" }}>{`提交`}</button>
                 </div>
               ))}
             </div>
@@ -110,3 +110,5 @@ export default function ChildTasksPage(){
     </div>
   );
 }
+
+// codex-ok: 2026-04-15T13:16:00+08:00

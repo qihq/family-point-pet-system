@@ -38,8 +38,8 @@ export async function GET(request: NextRequest){
 
   // 计划（用于展开为一周的“计划事件”）
   const plans = await prisma.taskPlan.findMany({
-    where: { childId: { in: childIds }, enabled: true },
-    select: { id:true, childId:true, title:true, points:true, category:true, durationMin:true, frequency:true, scheduledAt:true },
+    where: { childId: { in: childIds } },
+    select: { id:true, childId:true, title:true, points:true, category:true, durationMin:true, frequency:true, scheduledAt:true, enabled:true },
   });
 
   // 将本周每天展开计划事件（仅 daily / weekly；once 只在 scheduledAt 当天；未设置 scheduledAt 的 weekly 默认周一）
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest){
         points: 0,
         category: p.category||null,
         duration: p.durationMin??null,
-        isPlanned: true, taskPlanId: p.id,
+        isPlanned: true, taskPlanId: p.id, enabled: p.enabled,
       }); }
     }
   }
@@ -82,6 +82,7 @@ export async function GET(request: NextRequest){
     duration: l.taskPlan?.durationMin ?? null,
     isPending: (l.note||'').includes('pending-approval'),
     taskPlanId: l.taskPlan?.id || null,
+    enabled: true,
   }));
 
   // 去重：如果同一天同计划已经有“完成”记录，则不再返回该 planned 事件
@@ -94,4 +95,6 @@ export async function GET(request: NextRequest){
   const data = [...done, ...filteredPlanned];
   return NextResponse.json({ success:true, data });
 }
+
+// codex-ok: 2026-04-15T12:21:00+08:00
 

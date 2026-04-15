@@ -8,19 +8,27 @@ export default function ParentsTable({ initial }: { initial: ParentRow[] }) {
   const [rows, setRows] = useState<ParentRow[]>(initial);
 
   async function resetPwd(id: string) {
-    const pwd = prompt("输入新密码：", "parent123");
+    const pwd = prompt("请输入新密码：", "parent123");
     if (!pwd) return;
-    const r = await fetch(`/api/admin/parents/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ password: pwd }) });
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok || !d.success) alert(d.error || "重置失败");
+    const response = await fetch(`/api/admin/parents/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ password: pwd }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.success) alert(data.error || "重置失败");
   }
 
   async function disable(id: string) {
     if (!confirm("确定禁用该家长账号？")) return;
-    const r = await fetch(`/api/admin/parents/${id}`, { method: "DELETE", credentials: "include" });
-    const d = await r.json().catch(() => ({}));
-    if (!r.ok || !d.success) { alert(d.error || "禁用失败"); return; }
-    setRows((xs) => xs.filter((x) => x.id !== id));
+    const response = await fetch(`/api/admin/parents/${id}`, { method: "DELETE", credentials: "include" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.success) {
+      alert(data.error || "禁用失败");
+      return;
+    }
+    setRows((items) => items.filter((item) => item.id !== id));
   }
 
   return (
@@ -28,23 +36,23 @@ export default function ParentsTable({ initial }: { initial: ParentRow[] }) {
       <table className="w-full text-sm" style={{ background: "var(--a-card)", color: "var(--a-text)" }}>
         <thead style={{ color: "var(--a-muted)" }}>
           <tr>
-            <th className="text-left px-3 py-2">{`姓名`}</th>
-            <th className="text-left px-3 py-2">{`邮箱`}</th>
-            <th className="text-left px-3 py-2">{`注册时间`}</th>
-            <th className="text-left px-3 py-2">{`孩子数量`}</th>
-            <th className="text-left px-3 py-2">{`操作`}</th>
+            <th className="px-3 py-2 text-left">{`姓名`}</th>
+            <th className="px-3 py-2 text-left">{`邮箱`}</th>
+            <th className="px-3 py-2 text-left">{`注册时间`}</th>
+            <th className="px-3 py-2 text-left">{`孩子数量`}</th>
+            <th className="px-3 py-2 text-left">{`操作`}</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((p) => (
-            <tr key={p.id} className="border-t" style={{ borderColor: "var(--a-border)" }}>
-              <td className="px-3 py-2">{p.name}</td>
-              <td className="px-3 py-2">{p.email}</td>
-              <td className="px-3 py-2">{p.createdAtISO.replace("T", " ")}</td>
-              <td className="px-3 py-2">{p.childrenCount}</td>
+          {rows.map((parent) => (
+            <tr key={parent.id} className="border-t" style={{ borderColor: "var(--a-border)" }}>
+              <td className="px-3 py-2">{parent.name}</td>
+              <td className="px-3 py-2">{parent.email}</td>
+              <td className="px-3 py-2">{parent.createdAtISO.replace("T", " ")}</td>
+              <td className="px-3 py-2">{parent.childrenCount}</td>
               <td className="px-3 py-2">
-                <button onClick={() => resetPwd(p.id)} className="px-2 py-1 rounded-md mr-2" style={{ background: "var(--a-accent)", color: "white" }}>{`重置密码`}</button>
-                <button onClick={() => disable(p.id)} className="px-2 py-1 rounded-md" style={{ background: "#1f2937", color: "#fca5a5", border: "1px solid #ef4444" }}>{`禁用`}</button>
+                <button onClick={() => resetPwd(parent.id)} className="mr-2 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-500">{`重置密码`}</button>
+                <button onClick={() => disable(parent.id)} className="rounded-md border border-red-500 bg-transparent px-3 py-1.5 text-sm font-medium text-red-300 transition hover:bg-red-500/15 hover:text-red-200">{`禁用`}</button>
               </td>
             </tr>
           ))}
@@ -54,4 +62,4 @@ export default function ParentsTable({ initial }: { initial: ParentRow[] }) {
   );
 }
 
-// codex-ok: 2026-04-10T13:45:00+08:00
+// codex-ok: 2026-04-15T13:14:00+08:00

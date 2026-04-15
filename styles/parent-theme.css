@@ -10,6 +10,93 @@
   --p-danger:   #E03E3E;
   --p-radius:   8px;
   --font-body:  'Inter', -apple-system, sans-serif;
+  --primary:    var(--p-accent);
+  --primary-50: #EAF3FF;
+  --primary-100:#D7E8FA;
+  --primary-600:#1D6FC2;
+  --text:       var(--p-text);
+  --muted:      var(--p-muted);
 }
 
-/* codex-ok: 2026-04-10T12:40:00+08:00 */
+.parent-primary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  padding: 0.625rem 0.9rem;
+  background: var(--primary);
+  color: #ffffff;
+  font-weight: 600;
+  transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.parent-primary-btn:hover {
+  background: var(--primary-600);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(35, 131, 226, 0.16);
+}
+
+.parent-primary-btn:disabled,
+.parent-primary-btn[aria-disabled="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.parent-secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  padding: 0.625rem 0.9rem;
+  background: #f1f1ef;
+  color: var(--p-text);
+  font-weight: 500;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.parent-secondary-btn:hover {
+  background: #e6e4df;
+  color: var(--p-text);
+}
+
+html[data-theme="parent"] a[class*="bg-[var(--primary)]"],
+html[data-theme="parent"] button[class*="bg-[var(--primary)]"],
+html[data-theme="parent"] button[class*="bg-blue-600"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--primary) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+html[data-theme="parent"] a[class*="bg-[var(--primary)]"]:hover,
+html[data-theme="parent"] button[class*="bg-[var(--primary)]"]:hover,
+html[data-theme="parent"] button[class*="bg-blue-600"]:hover {
+  background: var(--primary-600) !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 18px rgba(35, 131, 226, 0.16);
+}
+
+html[data-theme="parent"] a[class*="bg-gray-100"],
+html[data-theme="parent"] button[class*="bg-gray-100"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #f1f1ef !important;
+  color: var(--p-text) !important;
+  font-weight: 500;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+html[data-theme="parent"] a[class*="bg-gray-100"]:hover,
+html[data-theme="parent"] button[class*="bg-gray-100"]:hover {
+  background: #e6e4df !important;
+  color: var(--p-text) !important;
+}
+
+/* codex-ok: 2026-04-15T13:31:00+08:00 */

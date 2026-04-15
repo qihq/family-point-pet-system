@@ -22,7 +22,7 @@ export default function ParentPlansPage(){
     setLoading(true); setError("");
     try{
       const [rt, rc] = await Promise.all([
-        fetch("/api/tasks?deleted=false", { cache:"no-store", credentials:"include" }),
+        fetch("/api/tasks?deleted=all", { cache:"no-store", credentials:"include" }),
         fetch("/api/family/children", { cache:"no-store", credentials:"include" })
       ]);
       const dt = await rt.json();
@@ -38,6 +38,15 @@ export default function ParentPlansPage(){
 
   function openCreate(){ setForm({ id:undefined, title:"", childId: children[0]?.id, points: 10, frequency: "once", enabled: true, needApproval: true, scheduledAt: null, dueAt: null }); setShowForm(true); }
   function openEdit(t:Task){ setForm({ ...t }); setShowForm(true); }
+  function openEditFromCalendar(event: CalendarEvent){
+    const taskId = event.taskPlanId || event.id;
+    const target = rows.find((row) => row.id === taskId);
+    if (!target) {
+      alert("未找到对应计划");
+      return;
+    }
+    openEdit(target);
+  }
 
   async function save(){
     try{
@@ -79,7 +88,7 @@ export default function ParentPlansPage(){
           <button onClick={openCreate} className="px-3 py-2 rounded bg-[var(--primary)] text-white hover:bg-[var(--primary-600)]">{`新建计划`}</button>
         </div>
 
-        <ParentCalendarBlock />
+        <ParentCalendarBlock onEventEdit={openEditFromCalendar} />
 
         {loading? <div>{`加载中…`}</div> : error? <div className="text-red-600">{error}</div> : (
           <div className="bg-white rounded-lg shadow-sm overflow-x-auto">
@@ -197,7 +206,7 @@ function PlanModal({ childrenList, value, onChange, onClose, onSubmit }:{ childr
   );
 }
 
-function ParentCalendarBlock(){
+function ParentCalendarBlock({ onEventEdit }:{ onEventEdit?: (event: CalendarEvent) => void }){
   const [events,setEvents] = React.useState<CalendarEvent[]>([]);
   const [children,setChildren] = React.useState<Array<{id:string,name:string}>>([]);
   const [childId,setChildId] = React.useState<string>("all");
@@ -216,8 +225,8 @@ function ParentCalendarBlock(){
           </select>
         </div>
       </div>
-      <WeeklyCalendar variant="parent" events={events} onWeekChange={onWeekChange} />
+      <WeeklyCalendar variant="parent" events={events} onWeekChange={onWeekChange} onEventClick={onEventEdit} />
     </div>
   );
 }
-// codex-ok: 2026-04-14T11:55:00+08:00
+// codex-ok: 2026-04-15T12:12:00+08:00

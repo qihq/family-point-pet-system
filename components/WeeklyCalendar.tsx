@@ -10,6 +10,9 @@ export interface CalendarEvent {
   points: number;
   category: "study" | "exercise" | "chore" | string | null;
   isPending?: boolean;
+  isPlanned?: boolean;
+  taskPlanId?: string | null;
+  enabled?: boolean;
 }
 
 export interface WeeklyCalendarProps {
@@ -112,6 +115,37 @@ function badgeColor(cat?: string | null){
   }
 }
 
+function parentEventStyle(event: CalendarEvent){
+  if (!event.isPlanned) {
+    if (event.isPending) {
+      return {
+        itemClass: 'bg-amber-50 text-amber-900 ring-amber-200',
+        badgeClass: 'bg-amber-100 text-amber-800',
+        badgeText: '待审核',
+      };
+    }
+    return {
+      itemClass: 'bg-emerald-50 text-emerald-900 ring-emerald-200',
+      badgeClass: 'bg-emerald-100 text-emerald-800',
+      badgeText: '已完成',
+    };
+  }
+
+  if (event.enabled === false) {
+    return {
+      itemClass: 'bg-slate-100 text-slate-500 ring-slate-200',
+      badgeClass: 'bg-slate-200 text-slate-600',
+      badgeText: '已停用',
+    };
+  }
+
+  return {
+    itemClass: badgeColor(event.category),
+    badgeClass: 'bg-white/80 text-slate-700',
+    badgeText: '计划中',
+  };
+}
+
 function ChildBody({ dayEvents, onEventClick }:{ dayEvents: CalendarEvent[]; onEventClick?: (e:CalendarEvent)=>void }){
   if(!dayEvents.length){
     return <div className="rounded-xl border border-amber-100 bg-amber-50/40 p-4 text-sm text-amber-700">今天还没有任务，去添加一个吧～</div>;
@@ -139,13 +173,39 @@ function ParentBody({ days, groupByDay, onEventClick }:{ days: Date[]; groupByDa
         return (
           <div key={idx} className="min-h-28 rounded-lg border bg-gray-50 p-2 space-y-1">
             {list.length===0 && <div className="h-16 grid place-items-center text-[11px] text-gray-400">无</div>}
-            {list.map(ev=> (
-              <button key={ev.id} onClick={()=>onEventClick?.(ev)} className={`w-full truncate text-left px-2 py-1 rounded-md ring-1 ${badgeColor(ev.category)} text-[11px] hover:shadow-sm`}> 
-                <span className="opacity-70 mr-1">{ev.childName || ''}</span>
-                {ev.title}
-                {ev.isPending && <span className="ml-1 text-amber-600">(待审)</span>}
-              </button>
-            ))}
+            {list.map(ev=> {
+              const isEditablePlan = ev.isPlanned && !!ev.taskPlanId;
+              const statusStyle = parentEventStyle(ev);
+              const baseClass = `w-full text-left px-2 py-1 rounded-md ring-1 text-[11px] ${statusStyle.itemClass}`;
+              if (!isEditablePlan) {
+                return (
+                  <div key={ev.id} className={`${baseClass} cursor-default`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 truncate">
+                        <span className="opacity-70 mr-1">{ev.childName || ''}</span>
+                        {ev.title}
+                      </div>
+                      <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${statusStyle.badgeClass}`}>
+                        {statusStyle.badgeText}
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <button key={ev.id} onClick={()=>onEventClick?.(ev)} className={`${baseClass} hover:shadow-sm`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 truncate">
+                      <span className="opacity-70 mr-1">{ev.childName || ''}</span>
+                      {ev.title}
+                    </div>
+                    <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${statusStyle.badgeClass}`}>
+                      {statusStyle.badgeText}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         );
       })}
@@ -153,4 +213,4 @@ function ParentBody({ days, groupByDay, onEventClick }:{ days: Date[]; groupByDa
   );
 }
 
-// codex-ok: 2026-04-09T16:53:27
+// codex-ok: 2026-04-15T12:33:00+08:00

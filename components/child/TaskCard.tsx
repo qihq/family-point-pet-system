@@ -1,8 +1,10 @@
-﻿"use client";
+"use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PointsPop from "@/components/child/PointsPop";
 import { usePointsPop } from "@/hooks/usePointsPop";
+
+export type TaskCardStatus = "idle" | "done" | "pending";
 
 export type TaskCardProps = {
   id: string;
@@ -11,7 +13,8 @@ export type TaskCardProps = {
   points: number;
   color: "green" | "purple" | "blue" | "pink";
   done?: boolean;
-  onComplete?: (id: string, points: number) => Promise<void> | void;
+  status?: TaskCardStatus;
+  onComplete?: (id: string, points: number) => Promise<{ status?: TaskCardStatus; points?: number } | void> | { status?: TaskCardStatus; points?: number } | void;
 };
 
 const COLOR_MAP: Record<TaskCardProps["color"], { bar: string; tileBg: string }> = {
@@ -25,28 +28,49 @@ function cx(...args: Array<string | false | null | undefined>) {
   return args.filter(Boolean).join(" ");
 }
 
-export default function TaskCard({ id, name, desc, points, color, done: doneInit = false, onComplete }: TaskCardProps) {
-  const [done, setDone] = useState<boolean>(!!doneInit);
+export default function TaskCard({ id, name, desc, points, color, done: doneInit = false, status: statusProp, onComplete }: TaskCardProps) {
+  const initialStatus: TaskCardStatus = statusProp ?? (doneInit ? "done" : "idle");
+  const [status, setStatus] = useState<TaskCardStatus>(initialStatus);
   const btnRef = useRef<HTMLButtonElement>(null);
   const { pops, trigger } = usePointsPop();
 
+  useEffect(() => {
+    setStatus(initialStatus);
+  }, [initialStatus]);
+
   async function handleClick() {
-    if (done) return;
+    if (status !== "idle") return;
     try {
-      setDone(true);
-      trigger(btnRef.current, points);
-      if(onComplete){ await onComplete(id, points); } else { try{ await fetch(`/api/tasks/${id}/complete`, { method: "POST", credentials: "include" }); }catch{} } // fallback complete
+      let result: { status?: TaskCardStatus; points?: number } | void;
+      if (onComplete) {
+        result = await onComplete(id, points);
+      } else {
+        const response = await fetch(`/api/tasks/${id}/complete`, { method: "POST", credentials: "include" });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.success) {
+          throw new Error(data?.error || "提交失败");
+        }
+        result = data?.data;
+      }
+
+      const nextStatus: TaskCardStatus = result?.status === "pending" ? "pending" : "done";
+      setStatus(nextStatus);
+      if (nextStatus === "done") {
+        trigger(btnRef.current, result?.points ?? points);
+      }
     } catch {
-      setDone(false);
+      setStatus("idle");
     }
   }
 
   const cm = COLOR_MAP[color];
+  const isDone = status === "done";
+  const isPending = status === "pending";
 
   return (
     <>
-      {pops.map((p) => (
-        <PointsPop key={p.id} id={p.id} x={p.x} y={p.y} points={p.points} />
+      {pops.map((pop) => (
+        <PointsPop key={pop.id} id={pop.id} x={pop.x} y={pop.y} points={pop.points} />
       ))}
       <button
         ref={btnRef}
@@ -55,27 +79,32 @@ export default function TaskCard({ id, name, desc, points, color, done: doneInit
         className={cx(
           "w-full text-left rounded-xl border border-gray-200 bg-white/95 shadow-sm transition-transform",
           "hover:shadow-md active:scale-[0.99]",
-          done && "line-through"
+          isDone && "line-through"
         )}
-        style={{ opacity: done ? 0.55 : 1 }}
-        aria-pressed={done}
+        style={{ opacity: isDone ? 0.55 : isPending ? 0.9 : 1 }}
+        aria-pressed={isDone}
       >
         <div className="flex">
           <div className={cx("w-[5px] rounded-l-xl", cm.bar)} aria-hidden="true" />
           <div className="flex-1 p-3 flex items-center gap-3">
             <div className={cx("w-[46px] h-[46px] rounded-[14px] flex items-center justify-center", cm.tileBg)}>
-              <span role="img" aria-label="task" className="text-xl">📋</span>
+              <span role="img" aria-label="task" className="text-xl">{`📋`}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[var(--c-text)] font-semibold truncate">{name}</div>
-              {desc ? <div className="text-sm text-[var(--c-muted)] truncate">{desc}</div> : null}
+              <div className="truncate font-semibold text-[var(--c-text)]">{name}</div>
+              {desc ? <div className="truncate text-sm text-[var(--c-muted)]">{desc}</div> : null}
             </div>
-            <div className="text-[20px] font-extrabold" style={{ color: "var(--c-orange)", fontFamily: "var(--font-display)" }}>+{points}</div>
+            <div className="text-[20px] font-extrabold" style={{ color: "var(--c-orange)", fontFamily: "var(--font-display)" }}>{`+${points}`}</div>
           </div>
         </div>
-        {done ? (
+        {isDone ? (
           <div className="px-3 pb-2">
-            <span className="inline-flex items-center gap-1 text-green-700 bg-green-50 border border-green-200 text-xs px-2 py-0.5 rounded-full">✓ {`已完成`}</span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs text-green-700">{`✓ 已完成`}</span>
+          </div>
+        ) : null}
+        {isPending ? (
+          <div className="px-3 pb-2">
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">{`等待家长审核`}</span>
           </div>
         ) : null}
       </button>
@@ -83,4 +112,4 @@ export default function TaskCard({ id, name, desc, points, color, done: doneInit
   );
 }
 
-// codex-ok: 2026-04-10T12:24:00+08:00
+// codex-ok: 2026-04-15T13:12:00+08:00
