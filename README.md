@@ -167,6 +167,6 @@ npx web-push generate-vapid-keys
 
 ## 说明
 
-- `deploy.md` 保留了更细的群晖部署说明
+- [deploy.md](./deploy.md) 提供了可直接照着做的群晖部署 step-by-step 说明
 - 项目当前按“渐进改造”路线维护，不建议推倒重来
 - 如果要重新导出 NAS 镜像，优先使用 `Dockerfile.aio.alpine.local`
