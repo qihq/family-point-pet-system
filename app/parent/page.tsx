@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Role } from "@prisma/client";
@@ -129,9 +130,19 @@ export default async function ParentHome() {
             {children.length ? (
               children.map((child) => (
                 <div key={child.id} className="flex items-center gap-4 rounded-2xl border border-[var(--p-border)] px-4 py-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--primary-50)] text-sm font-semibold text-[var(--p-accent)]">
-                    {child.name.slice(0, 1)}
-                  </div>
+                  {child.avatarUrl ? (
+                    <Image
+                      src={child.avatarUrl}
+                      alt={`${child.name} 头像`}
+                      width={44}
+                      height={44}
+                      className="h-11 w-11 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--primary-50)] text-sm font-semibold text-[var(--p-accent)]">
+                      {child.name.slice(0, 1)}
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <div className="font-medium">{child.name}</div>
                     <div className="mt-1 text-sm text-[var(--p-muted)]">累计积分 {child.totalEarnedPoints} · 连续打卡 {child.streak} 天</div>

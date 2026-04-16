@@ -82,7 +82,25 @@ async function updateChild(request: NextRequest, id: string) {
   }
 
   const data: { name?: string; pin?: string | null; avatarUrl?: string | null } = {};
-  if (name !== undefined) data.name = name.trim();
+  if (name !== undefined) {
+    const nextName = name.trim();
+    if (!nextName) {
+      return NextResponse.json({ success: false, error: "名字不能为空" }, { status: 400 });
+    }
+
+    const duplicate = await prisma.user.findFirst({
+      where: {
+        id: { not: id },
+        name: { equals: nextName, mode: "insensitive" },
+      },
+      select: { id: true },
+    });
+    if (duplicate) {
+      return NextResponse.json({ success: false, error: "该名字已存在，请更换" }, { status: 409 });
+    }
+
+    data.name = nextName;
+  }
   if (pin !== undefined) data.pin = pin.trim() ? hashPin(pin.trim()) : null;
 
   const avatarUrl = await saveAvatar(id, avatarFile, avatarBase64);

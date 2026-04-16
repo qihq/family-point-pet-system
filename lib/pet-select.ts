@@ -1,0 +1,17 @@
+export const petCoreSelect = {
+  id: true,
+  childId: true,
+  name: true,
+  stage: true,
+  level: true,
+  exp: true,
+  status: true,
+  hunger: true,
+  thirst: true,
+  cleanliness: true,
+  mood: true,
+  health: true,
+  lastDecayAt: true,
+  updatedAt: true,
+  totalCareCount: true,
+} as const;

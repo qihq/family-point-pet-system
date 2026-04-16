@@ -1,8 +1,10 @@
 import { cookies } from "next/headers";
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/auth";
+import { petCoreSelect } from "@/lib/pet-select";
 import { PetCard } from "@/components/child/PetCard";
 import TaskCard from "@/components/child/TaskCard";
 
@@ -34,7 +36,7 @@ async function getData() {
       streak: true,
       totalEarnedPoints: true,
       avatarUrl: true,
-      pet: true,
+      pet: { select: petCoreSelect },
     },
   });
   if (!child) redirect("/login");
@@ -105,9 +107,19 @@ export default async function ChildHome() {
         <section className="rounded-[30px] bg-[linear-gradient(135deg,#fff7e0_0%,#fff1e7_55%,#ffffff_100%)] px-5 py-5 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--c-yellow)] text-lg font-bold text-[var(--c-text)]">
-                {child.name.slice(0, 1)}
-              </div>
+              {child.avatarUrl ? (
+                <Image
+                  src={child.avatarUrl}
+                  alt={`${child.name} 头像`}
+                  width={48}
+                  height={48}
+                  className="h-12 w-12 rounded-full object-cover"
+                />
+              ) : (
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--c-yellow)] text-lg font-bold text-[var(--c-text)]">
+                  {child.name.slice(0, 1)}
+                </div>
+              )}
               <div>
                 <div className="text-sm text-[var(--c-muted)]">欢迎回来</div>
                 <div className="text-xl font-bold text-[var(--c-text)]">{child.name}</div>
