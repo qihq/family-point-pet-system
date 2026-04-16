@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import WeeklyCalendar, { CalendarEvent } from "@/components/WeeklyCalendar";
 
 interface Child { id:string; name:string; avatarUrl?:string|null }
@@ -211,8 +211,8 @@ function ParentCalendarBlock({ onEventEdit }:{ onEventEdit?: (event: CalendarEve
   const [children,setChildren] = React.useState<Array<{id:string,name:string}>>([]);
   const [childId,setChildId] = React.useState<string>("all");
   React.useEffect(()=>{ (async()=>{ try{ const r=await fetch('/api/family/children',{cache:'no-store',credentials:'include'}); const d=await r.json(); if(r.ok&&d.success) setChildren(d.data||[]);}catch{} })(); },[]);
-  const onWeekChange = (from:Date,to:Date)=>{ (async()=>{ try{ const url=`/api/calendar?from=${from.toISOString().slice(0,10)}&to=${to.toISOString().slice(0,10)}`; const r=await fetch(url,{cache:'no-store',credentials:'include'}); const d=await r.json(); if(r.ok&&d.success){ const all = d.data as CalendarEvent[]; setEvents(childId==='all'? all : all.filter(e=> e.childId===childId)); } }catch{} })(); };
-  React.useEffect(()=>{ const now=new Date(); const w=((now.getDay()+6)%7); const from=new Date(now); from.setDate(now.getDate()-w); from.setHours(0,0,0,0); const to=new Date(from); to.setDate(from.getDate()+6); to.setHours(23,59,59,999); onWeekChange(from,to); },[childId]);
+  const onWeekChange = useCallback((from:Date,to:Date)=>{ (async()=>{ try{ const url=`/api/calendar?from=${from.toISOString().slice(0,10)}&to=${to.toISOString().slice(0,10)}`; const r=await fetch(url,{cache:'no-store',credentials:'include'}); const d=await r.json(); if(r.ok&&d.success){ const all = d.data as CalendarEvent[]; setEvents(childId==='all'? all : all.filter(e=> e.childId===childId)); } }catch{} })(); },[childId]);
+  React.useEffect(()=>{ const now=new Date(); const w=((now.getDay()+6)%7); const from=new Date(now); from.setDate(now.getDate()-w); from.setHours(0,0,0,0); const to=new Date(from); to.setDate(from.getDate()+6); to.setHours(23,59,59,999); onWeekChange(from,to); },[childId, onWeekChange]);
   return (
     <div className="bg-white rounded-xl shadow-sm p-3 mb-4">
       <div className="flex items-center justify-between mb-2">

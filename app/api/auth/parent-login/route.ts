@@ -1,39 +1,50 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, Role } from '@prisma/client';
-import { generateToken, verifyPassword, createSessionUser, createLoginSuccess, createLoginError } from '@/lib/auth';
-import { ParentCredentials } from '@/types/auth';
+export const dynamic = "force-dynamic";
 
-const prisma = new PrismaClient();
+import { Role } from "@prisma/client";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  createLoginError,
+  createLoginSuccess,
+  createSessionUser,
+  generateToken,
+  hashPassword,
+  isLegacySecret,
+  setSessionCookie,
+  verifyPassword,
+} from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import type { ParentCredentials } from "@/types/auth";
 
 export async function POST(request: NextRequest) {
   try {
-    const body: ParentCredentials = await request.json();
-    const name = (body.name||'').trim();
-    const password = (body.password||'').trim();
+    const body = (await request.json()) as Partial<ParentCredentials>;
+    const name = String(body.name || "").trim();
+    const password = String(body.password || "").trim();
 
     if (!name || !password) {
-      return NextResponse.json(createLoginError('ç”¨æˆ·åå’Œå¯†ç ä¸èƒ½ä¸ºç©º'), { status: 400 });
+      return NextResponse.json(createLoginError("用户名和密码不能为空"), { status: 400 });
     }
 
-    const user = await prisma.user.findFirst({ where: { role: Role.parent, name: { equals: name, mode: 'insensitive' } } });
-    if (!user) {
-      return NextResponse.json(createLoginError('ç”¨æˆ·åä¸å­˜åœ¨'), { status: 401 });
+    const user = await prisma.user.findFirst({
+      where: { role: Role.parent, name: { equals: name, mode: "insensitive" } },
+      select: { id: true, name: true, role: true, familyId: true, password: true },
+    });
+    if (!user || !user.password || !verifyPassword(password, user.password)) {
+      return NextResponse.json(createLoginError("用户名或密码错误"), { status: 401 });
     }
 
-    if (!verifyPassword(password, user.password || '')) {
-      return NextResponse.json(createLoginError('å¯†ç é”™è¯¯'), { status: 401 });
+    if (isLegacySecret(user.password)) {
+      await prisma.user.update({ where: { id: user.id }, data: { password: hashPassword(password) } });
     }
 
     const token = await generateToken({ userId: user.id, role: user.role, familyId: user.familyId });
-    const sessionUser = createSessionUser({ userId: user.id, role: user.role, familyId: user.familyId }, user.name);
-    const result = createLoginSuccess(sessionUser);
-
-    return NextResponse.json(
-      { ...result, token },
-      { status: 200, headers: { 'Set-Cookie': `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800` } }
+    const response = NextResponse.json(
+      { ...createLoginSuccess(createSessionUser({ userId: user.id, role: user.role, familyId: user.familyId }, user.name)), token },
+      { status: 200 }
     );
+    return setSessionCookie(response, token);
   } catch (error) {
-    console.error('å®¶é•¿ç™»å½•é”™è¯¯:', error);
-    return NextResponse.json(createLoginError('ç™»å½•å¤±è´¥ï¼Œè¯·ç¨åŽé‡è¯•ã€‚'), { status: 500 });
+    console.error("家长登录失败:", error);
+    return NextResponse.json(createLoginError("登录失败，请稍后重试。"), { status: 500 });
   }
 }

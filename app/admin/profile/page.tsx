@@ -1,85 +1,270 @@
-﻿"use client";
-import React, { useEffect, useState } from 'react';
-import { useRequireRole } from '@/lib/useRequireRole';
+"use client";
 
-export default function AdminProfile(){
-  useRequireRole('admin');
-  const [me,setMe] = useState<any>(null);
-  const [name,setName] = useState('');
-  const [avatarUrl,setAvatarUrl] = useState('');
-  const [msg,setMsg] = useState('');
-  const [uploading,setUploading] = useState(false);
+/* eslint-disable @next/next/no-img-element */
 
-  function authHeaders(){ const t = typeof window!=='undefined'? localStorage.getItem('token') : null; const h:any = {}; if(t) h.Authorization = `Bearer ${t}`; return h; }
+import { useCallback, useEffect, useState } from "react";
+import { useRequireRole } from "@/lib/useRequireRole";
 
-  useEffect(()=>{
-    (async()=>{
-      const r = await fetch('/api/admin/me',{cache:'no-store',credentials:'include',headers:authHeaders()});
-      const d = await r.json();
-      if(r.ok&&d.success){ setMe(d.data); setName(d.data?.name||''); setAvatarUrl(d.data?.avatarUrl||''); }
-    })();
-  },[]);
+type AdminProfileData = {
+  id: string;
+  name: string;
+  avatarUrl?: string | null;
+} | null;
 
-  async function save(){
-    const r = await fetch('/api/admin/me',{ method:'PATCH', headers:{ 'Content-Type':'application/json', ...authHeaders() }, credentials:'include', body: JSON.stringify({ name, avatarUrl })});
-    const d = await r.json();
-    if(!r.ok||!d.success){ alert(d.error||'保存失败'); return; }
-    setMsg('已保存'); setTimeout(()=>setMsg(''),1500);
+type Notice = { tone: "success" | "error"; text: string } | null;
+
+export default function AdminProfile() {
+  useRequireRole("admin");
+
+  const [me, setMe] = useState<AdminProfileData>(null);
+  const [name, setName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [notice, setNotice] = useState<Notice>(null);
+
+  const loadProfile = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/admin/me", {
+        cache: "no-store",
+        credentials: "include",
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "加载管理员资料失败");
+      }
+
+      setMe(data.data);
+      setName(data.data?.name || "");
+      setAvatarUrl(data.data?.avatarUrl || "");
+      setNotice(null);
+    } catch (caught) {
+      setNotice({
+        tone: "error",
+        text: caught instanceof Error ? caught.message : "加载管理员资料失败",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadProfile();
+  }, [loadProfile]);
+
+  async function saveProfile() {
+    setSavingProfile(true);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/admin/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ name, avatarUrl }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "保存失败");
+      }
+
+      setMe(data.data);
+      setNotice({ tone: "success", text: "管理员资料已保存" });
+    } catch (caught) {
+      setNotice({
+        tone: "error",
+        text: caught instanceof Error ? caught.message : "保存失败",
+      });
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
-  async function uploadAvatar(ev: React.ChangeEvent<HTMLInputElement>){
-    const file = ev.target.files?.[0]; if(!file) return;
+  async function uploadAvatar(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
     setUploading(true);
-    try{
-      const fd = new FormData(); fd.append('file', file);
-      const r = await fetch('/api/admin/me/avatar', { method:'POST', body: fd, credentials:'include', headers:authHeaders() });
-      const d = await r.json();
-      if(!r.ok||!d.success){ alert(d.error||'上传失败'); return; }
-      setAvatarUrl(d.data?.url||'');
-      setMsg('头像已更新'); setTimeout(()=>setMsg(''),1500);
-    }finally{ setUploading(false); }
+    setNotice(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/admin/me/avatar", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "头像上传失败");
+      }
+
+      setAvatarUrl(data.data?.url || "");
+      setNotice({ tone: "success", text: "头像已更新" });
+    } catch (caught) {
+      setNotice({
+        tone: "error",
+        text: caught instanceof Error ? caught.message : "头像上传失败",
+      });
+    } finally {
+      setUploading(false);
+      event.target.value = "";
+    }
   }
 
-  async function changePwd(){
-    const oldPassword = prompt('旧密码：','')||'';
-    const newPassword = prompt('新密码：','')||'';
-    if(!newPassword) return;
-    const r = await fetch('/api/admin/me',{ method:'POST', headers:{ 'Content-Type':'application/json', ...authHeaders() }, credentials:'include', body: JSON.stringify({ oldPassword, newPassword })});
-    const d = await r.json();
-    if(!r.ok||!d.success){ alert(d.error||'修改失败'); return; }
-    setMsg('密码已修改'); setTimeout(()=>setMsg(''),1500);
+  async function changePassword() {
+    if (!newPassword.trim()) {
+      setNotice({ tone: "error", text: "请输入新密码" });
+      return;
+    }
+
+    setSavingPassword(true);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/admin/me", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ oldPassword, newPassword }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "密码修改失败");
+      }
+
+      setOldPassword("");
+      setNewPassword("");
+      setNotice({ tone: "success", text: "登录密码已更新" });
+    } catch (caught) {
+      setNotice({
+        tone: "error",
+        text: caught instanceof Error ? caught.message : "密码修改失败",
+      });
+    } finally {
+      setSavingPassword(false);
+    }
   }
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-6">
-      <div className="max-w-xl mx-auto">
-        <h1 className="text-2xl font-bold text-[var(--text)]">管理员资料</h1>
-        <div className="mt-4 bg-white rounded shadow-sm p-4 space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 border">
-              {avatarUrl? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">无头像</div>}
+      <div className="mx-auto max-w-3xl space-y-4">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--text)]">管理员资料</h1>
+          <p className="mt-1 text-sm text-gray-500">统一维护管理员的名称、头像和登录密码。</p>
+        </div>
+
+        {notice && (
+          <div
+            className="rounded-2xl px-4 py-3 text-sm"
+            style={{
+              background: notice.tone === "success" ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)",
+              color: notice.tone === "success" ? "#065f46" : "#991b1b",
+            }}
+          >
+            {notice.text}
+          </div>
+        )}
+
+        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <section className="rounded-2xl bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-4">
+              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border bg-gray-100">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={name || "管理员头像"} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-xl font-semibold text-gray-400">{(name || "A").slice(0, 1)}</span>
+                )}
+              </div>
+              <div>
+                <div className="text-sm text-gray-500">当前账号</div>
+                <div className="text-lg font-semibold text-gray-900">{me?.name || "管理员"}</div>
+                <label className="mt-3 inline-flex cursor-pointer rounded-xl bg-[var(--primary)] px-3 py-2 text-sm text-white">
+                  {uploading ? "上传中…" : "上传新头像"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={uploadAvatar}
+                    disabled={uploading}
+                  />
+                </label>
+              </div>
             </div>
-            <div>
-              <label className="inline-block px-3 py-1.5 rounded bg-[var(--primary)] text-white hover:brightness-105 cursor-pointer">
-                {uploading? '上传中…' : '上传头像'}
-                <input type="file" accept="image/*" className="hidden" onChange={uploadAvatar} disabled={uploading}/>
+
+            {loading ? (
+              <div className="text-sm text-gray-500">加载中…</div>
+            ) : (
+              <div className="space-y-4">
+                <label className="block text-sm text-gray-600">
+                  管理员名称
+                  <input
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    className="mt-1 w-full rounded-xl border px-3 py-2"
+                  />
+                </label>
+
+                <label className="block text-sm text-gray-600">
+                  头像 URL（可选）
+                  <input
+                    value={avatarUrl}
+                    onChange={(event) => setAvatarUrl(event.target.value)}
+                    className="mt-1 w-full rounded-xl border px-3 py-2"
+                  />
+                </label>
+
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => void saveProfile()}
+                    disabled={savingProfile}
+                    className="rounded-xl bg-[var(--primary)] px-4 py-2 text-sm text-white disabled:opacity-60"
+                  >
+                    {savingProfile ? "保存中…" : "保存资料"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-2xl bg-white p-5 shadow-sm">
+            <div className="text-lg font-semibold text-gray-900">修改密码</div>
+            <p className="mt-1 text-sm text-gray-500">推荐在系统稳定后第一时间更换默认管理员密码。</p>
+
+            <div className="mt-4 space-y-4">
+              <label className="block text-sm text-gray-600">
+                旧密码
+                <input
+                  type="password"
+                  value={oldPassword}
+                  onChange={(event) => setOldPassword(event.target.value)}
+                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                />
               </label>
-              {avatarUrl && <div className="text-xs text-gray-500 mt-1">{avatarUrl}</div>}
+
+              <label className="block text-sm text-gray-600">
+                新密码
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  className="mt-1 w-full rounded-xl border px-3 py-2"
+                />
+              </label>
+
+              <button
+                onClick={() => void changePassword()}
+                disabled={savingPassword}
+                className="w-full rounded-xl bg-slate-900 px-4 py-2 text-sm text-white disabled:opacity-60"
+              >
+                {savingPassword ? "提交中…" : "更新密码"}
+              </button>
             </div>
-          </div>
-          <div>
-            <div className="text-sm text-gray-600">用户名</div>
-            <input value={name} onChange={e=>setName(e.target.value)} className="mt-1 w-full px-3 py-2 border rounded" />
-          </div>
-          <div>
-            <div className="text-sm text-gray-600">头像 URL（可选）</div>
-            <input value={avatarUrl} onChange={e=>setAvatarUrl(e.target.value)} className="mt-1 w-full px-3 py-2 border rounded" />
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={save} className="px-3 py-1.5 rounded bg-[var(--primary)] text-white">保存</button>
-            <button onClick={changePwd} className="px-3 py-1.5 rounded bg-gray-100">修改密码</button>
-          </div>
-          {msg && <div className="text-sm text-blue-700">{msg}</div>}
+          </section>
         </div>
       </div>
     </div>

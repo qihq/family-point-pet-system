@@ -1,60 +1,57 @@
-﻿import { ParentLogoutButton } from './_logout';
 import Link from "next/link";
-import "@/styles/parent-theme.css";
+import ThemeController from "@/components/ThemeController";
 import PushInit from "@/components/parent/PushInit";
+import { ParentLogoutButton } from "./_logout";
+import "@/styles/parent-theme.css";
+
+const navItems = [
+  { href: "/parent", label: "总览", icon: "🏠" },
+  { href: "/parent/review", label: "待审核", icon: "📝" },
+  { href: "/parent/plans", label: "学习计划", icon: "📚" },
+  { href: "/parent/point-rules", label: "积分规则", icon: "🗂️" },
+  { href: "/parent/rewards", label: "奖品管理", icon: "🎁" },
+  { href: "/parent/settings", label: "设置", icon: "⚙️" },
+];
 
 export default function ParentLayout({ children }: { children: React.ReactNode }) {
-  const items = [
-    { href: "/parent", label: "总览", icon: "🏠" },
-    { href: "/parent/point-rules", label: "任务管理", icon: "🗂️" },
-    { href: "/parent/review", label: "积分审核", icon: "📝" },
-    { href: "/parent/rewards", label: "奖品管理", icon: "🎁" },
-    { href: "/parent/plans", label: "学习计划", icon: "📚" },
-    { href: "/parent/settings", label: "账号设置", icon: "⚙️" },
-  ];
   return (
-    <html lang="zh-CN" data-theme="parent">
-      <body className="min-h-screen" style={{ fontFamily: "var(--font-body)" }}>
-        {/* Sidebar (desktop) */}
-        <aside className="hidden md:flex fixed inset-y-0 left-0 w-[240px] bg-[var(--p-card)] border-r border-[var(--p-border)]">
-          <div className="flex-1 flex flex-col p-4">
-            <div className="text-lg font-bold text-[var(--p-text)] mb-4">{`家长中心`}</div>
-            <nav className="flex-1 space-y-1 text-[var(--p-text)]">
-              {items.map((it) => (
-                <Link key={it.href} href={it.href} className="block px-3 py-2 rounded-md hover:bg-gray-100">
-                  <span className="mr-2" aria-hidden>{it.icon}</span>
-                  <span className="align-middle">{it.label}</span>
+    <>
+      <ThemeController theme="parent" />
+      <div className="min-h-screen bg-[var(--p-bg)] text-[var(--p-text)]" style={{ fontFamily: "var(--font-body)" }}>
+        <aside className="fixed inset-y-0 left-0 hidden w-[248px] border-r border-[var(--p-border)] bg-[var(--p-card)] md:flex">
+          <div className="flex flex-1 flex-col p-5">
+            <div className="mb-6">
+              <div className="text-xs uppercase tracking-[0.2em] text-[var(--p-muted)]">Parent Workspace</div>
+              <div className="mt-2 text-xl font-semibold">家长中心</div>
+            </div>
+            <nav className="flex flex-1 flex-col gap-1.5">
+              {navItems.map((item) => (
+                <Link key={item.href} href={item.href} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition hover:bg-[var(--primary-50)]">
+                  <span aria-hidden>{item.icon}</span>
+                  <span>{item.label}</span>
                 </Link>
               ))}
             </nav>
-            <div className="mt-4"><ParentLogoutButton /></div>
+            <ParentLogoutButton />
           </div>
         </aside>
 
-        {/* Main content */}
-        <div className="md:pl-[240px] min-h-screen bg-[var(--p-bg)] text-[var(--p-text)]">
-          <main className="mx-auto max-w-6xl px-4 pb-16 md:pb-6 pt-4">{children}</main>
+        <div className="min-h-screen md:pl-[248px]">
+          <main className="mx-auto max-w-6xl px-4 pb-24 pt-4 md:px-6 md:pb-8 md:pt-6">{children}</main>
         </div>
 
-        {/* Bottom tabs (mobile) */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--p-card)] border-t border-[var(--p-border)] backdrop-blur">
-          <div className="grid grid-cols-5 py-2 text-center text-xs">
-            {items.slice(0,5).map((it) => (
-              <Link key={it.href} href={it.href} className="px-1">
-                <div className="flex flex-col items-center">
-                  <span className="text-lg" aria-hidden>{it.icon}</span>
-                  <span className="mt-0.5 text-[var(--p-muted)]">{it.label}</span>
-                </div>
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--p-border)] bg-[var(--p-card)]/95 backdrop-blur md:hidden">
+          <div className="grid grid-cols-4 py-2 text-center text-[11px]">
+            {navItems.slice(0, 4).map((item) => (
+              <Link key={item.href} href={item.href} className="flex flex-col items-center gap-1 px-1 py-1 text-[var(--p-muted)]">
+                <span className="text-lg" aria-hidden>{item.icon}</span>
+                <span>{item.label}</span>
               </Link>
             ))}
           </div>
         </nav>
-
-        {/* SW + Push registration */}
-        <PushInit publicKey={process.env.VAPID_PUBLIC_KEY as string || ""} />
-      </body>
-    </html>
+        <PushInit publicKey={process.env.VAPID_PUBLIC_KEY || ""} />
+      </div>
+    </>
   );
 }
-
-// codex-ok: 2026-04-10T15:55:00+08:00

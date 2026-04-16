@@ -1,6 +1,5 @@
-import { PrismaClient, RecordStatus } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { RecordStatus } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
 export interface SubmitPointRecordInput {
   childId: string;

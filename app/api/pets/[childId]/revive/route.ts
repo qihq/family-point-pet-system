@@ -1,8 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { verifyToken, getTokenFromHeader } from '@/lib/auth';
 
-const prisma = new PrismaClient();
+import { verifyToken, getTokenFromHeader } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest, { params }: { params: { childId: string } }){
   try{

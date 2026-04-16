@@ -1,8 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, Role, PetAction, TransactionType, SourceType } from '@prisma/client';
+import { Role, PetAction, TransactionType, SourceType } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { verifyToken, getTokenFromHeader } from '@/lib/auth';
-
-const prisma = new PrismaClient();
 
 function clamp(n: number) { return Math.max(0, Math.min(100, n)); }
 

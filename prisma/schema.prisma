@@ -185,6 +185,7 @@ model Pet {
   id           String    @id @default(uuid())
   childId      String    @unique
   name        String    @default("ÃƒÆ’Ã‚Â¥Ãƒâ€šÃ‚Â°Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¥Ãƒâ€šÃ‚Â®Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â§ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°Ãƒâ€šÃ‚Â©")
+  modelUrl     String?
   stage        PetStage  @default(egg)
   level        Int       @default(1)
   exp          Int       @default(0)

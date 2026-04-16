@@ -1,8 +1,7 @@
 ﻿import { NextRequest } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { withAction } from '@/server/services/pet-actions-lite';
 
-const prisma = new PrismaClient();
+import { withAction } from '@/server/services/pet-actions-lite';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest, { params }: { params: { childId: string } }){
   const { childId } = params;

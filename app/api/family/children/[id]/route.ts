@@ -1,138 +1,116 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { getTokenFromHeader, verifyToken } from '@/lib/auth';
-import { promises as fs } from 'node:fs';
-import { join, extname } from 'node:path';
-import crypto from 'node:crypto';
+import { promises as fs } from "node:fs";
+import { extname, join } from "node:path";
+import { Role } from "@prisma/client";
+import { NextRequest, NextResponse } from "next/server";
+import { hashPin, requireRequestAuth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
-const prisma = new PrismaClient();
+async function ensureChildScope(request: NextRequest, childId: string) {
+  const auth = await requireRequestAuth(request, [Role.parent, Role.admin]);
+  if (!auth.ok) return auth;
 
-async function ensureParentOrAdmin(request: NextRequest){
-  const authHeader = request.headers.get('authorization');
-  const token = getTokenFromHeader(authHeader) || request.cookies.get('token')?.value || '';
-  if (!token) return { ok:false as const, status:401, error:'未登录' };
-  const payload = await verifyToken(token);
-  if (!payload) return { ok:false as const, status:401, error:'登录已失效' };
-  if(String((payload as any).role||'')==='child') return { ok:false as const, status:403, error:'仅限家长或管理员' };
-  return { ok:true as const, payload };
-}
-
-export async function GET(request: NextRequest, { params }:{ params:{ id:string } }){
-  const auth = await ensureParentOrAdmin(request);
-  if(!auth.ok) return NextResponse.json({ success:false, error:auth.error }, { status:auth.status });
-  const id = params.id;
-  const u = await prisma.user.findFirst({ where:{ id, role: 'child' as any }, select:{ id:true, name:true, pin:true, avatarUrl:true, familyId:true } });
-  if(!u) return NextResponse.json({ success:false, error:'孩子不存在' }, { status:404 });
-  return NextResponse.json({ success:true, data:u });
-}
-
-export async function PATCH(request: NextRequest, { params }:{ params:{ id:string } }){
-  try{
-    const auth = await ensureParentOrAdmin(request);
-    if(!auth.ok) return NextResponse.json({ success:false, error:auth.error }, { status:auth.status });
-    const id = params.id;
-    const existing = await prisma.user.findFirst({ where:{ id, role: 'child' as any }, select:{ id:true, familyId:true } });
-    if(!existing) return NextResponse.json({ success:false, error:'孩子不存在' }, { status:404 });
-
-    const ct = request.headers.get('content-type')||'';
-    let name: string|undefined, pin: string|undefined, avatarFile: File|null = null;
-    if(ct.includes('multipart/form-data')){
-      const form = await request.formData();
-      name = form.get('name')? String(form.get('name')): undefined;
-      pin = form.get('pin')? String(form.get('pin')): undefined;
-      avatarFile = (form.get('avatar') as File) || null;
-    }else{
-      const body = await request.json().catch(()=>({}));
-      name = body.name!=null? String(body.name): undefined;
-      pin = body.pin!=null? String(body.pin): undefined;
-    }
-
-    const data:any = {};
-    if(name!==undefined) data.name = name.trim();
-    if(pin!==undefined) data.pin = pin.trim();
-
-    if(avatarFile){
-      const buf = Buffer.from(await avatarFile.arrayBuffer());
-      const ext = (extname(avatarFile.name)||'.png').toLowerCase();
-      const dir = join(process.cwd(), 'public', 'uploads', 'avatars');
-      await fs.mkdir(dir, { recursive: true });
-      const filename = `${id}${ext}`;
-      await fs.writeFile(join(dir, filename), buf);
-      data.avatarUrl = `/uploads/avatars/${filename}`;
-    }
-
-    const updated = await prisma.user.update({ where:{ id }, data });
-    return NextResponse.json({ success:true, data:{ id: updated.id, name: updated.name, pin: updated.pin, avatarUrl: updated.avatarUrl } });
-  } catch (e:any){
-    return NextResponse.json({ success:false, error: e?.message || '更新失败' }, { status:500 });
+  const child = await prisma.user.findFirst({
+    where: {
+      id: childId,
+      role: Role.child,
+      familyId: auth.payload.role === Role.admin ? undefined : auth.payload.familyId,
+    },
+    select: { id: true, familyId: true },
+  });
+  if (!child) {
+    return { ok: false as const, status: 404, error: "孩子不存在" };
   }
+  return { ok: true as const, payload: auth.payload, child };
 }
 
-export async function PUT(request: NextRequest, ctx: { params: { id: string } }){
-  try{
-    const auth = await ensureParentOrAdmin(request);
-    if(!auth.ok) return NextResponse.json({ success:false, error:auth.error }, { status:auth.status });
-    const id = ctx.params.id;
-    const existing = await prisma.user.findFirst({ where:{ id, role: 'child' as any }, select:{ id:true, familyId:true } });
-    if(!existing) return NextResponse.json({ success:false, error:'孩子不存在' }, { status:404 });
+async function saveAvatar(childId: string, avatarFile?: File | null, avatarBase64?: string) {
+  if (!avatarFile && !avatarBase64) return null;
 
-    const ct = request.headers.get('content-type')||'';
-    let name: string|undefined, pin: string|undefined, avatarFile: File|null = null, avatarBase64: string|undefined;
-    if(ct.includes('multipart/form-data')){
-      const form = await request.formData();
-      name = form.get('name')? String(form.get('name')): undefined;
-      pin = form.get('pin')? String(form.get('pin')): undefined;
-      avatarFile = (form.get('avatar') as File) || null;
-      avatarBase64 = form.get('avatarBase64')? String(form.get('avatarBase64')): undefined;
-    }else{
-      const body = await request.json().catch(()=>({}));
-      name = body.name!=null? String(body.name): undefined;
-      pin = body.pin!=null? String(body.pin): undefined;
-      avatarBase64 = body.avatarBase64!=null? String(body.avatarBase64): undefined;
-    }
-
-    const data:any = {};
-    if(name!==undefined) data.name = name.trim();
-    if(pin!==undefined) data.pin = pin.trim();
-
-    if(avatarFile || avatarBase64){
-      let buf: Buffer;
-      let ext = '.png';
-      if(avatarFile){
-        buf = Buffer.from(await avatarFile.arrayBuffer());
-        ext = (extname(avatarFile.name)||'.png').toLowerCase();
-      } else {
-        const m = avatarBase64!.match(/^data:(.*?);base64,(.*)$/);
-        const mime = m? (m[1]||'') : '';
-        const b64 = m? m[2] : avatarBase64!;
-        if(mime.includes('jpeg') || mime.includes('jpg')) ext = '.jpg';
-        else if(mime.includes('png')) ext = '.png';
-        buf = Buffer.from(b64, 'base64');
-      }
-      const dir = join(process.cwd(), 'public', 'uploads', 'avatars');
-      await fs.mkdir(dir, { recursive: true });
-      const filename = `${id}${ext}`;
-      await fs.writeFile(join(dir, filename), buf);
-      data.avatarUrl = `/uploads/avatars/${filename}`;
-    }
-
-    const updated = await prisma.user.update({ where:{ id }, data });
-    return NextResponse.json({ success:true, data:{ id: updated.id, name: updated.name, pin: updated.pin, avatarUrl: updated.avatarUrl } });
-  } catch (e:any){
-    return NextResponse.json({ success:false, error: e?.message || '更新失败' }, { status:500 });
+  let buffer: Buffer;
+  let ext = ".png";
+  if (avatarFile) {
+    buffer = Buffer.from(await avatarFile.arrayBuffer());
+    ext = (extname(avatarFile.name) || ".png").toLowerCase();
+  } else {
+    const match = avatarBase64?.match(/^data:(.*?);base64,(.*)$/);
+    const mime = match?.[1] || "";
+    const base64 = match?.[2] || avatarBase64 || "";
+    if (mime.includes("jpeg") || mime.includes("jpg")) ext = ".jpg";
+    if (mime.includes("webp")) ext = ".webp";
+    buffer = Buffer.from(base64, "base64");
   }
+
+  const dir = join(process.cwd(), "public", "uploads", "avatars");
+  await fs.mkdir(dir, { recursive: true });
+  const filename = `${childId}${ext}`;
+  await fs.writeFile(join(dir, filename), buffer);
+  return `/uploads/avatars/${filename}`;
 }
 
-export async function DELETE(request: NextRequest, { params }:{ params:{ id:string } }){
-  try{
-    const auth = await ensureParentOrAdmin(request);
-    if(!auth.ok) return NextResponse.json({ success:false, error:auth.error }, { status:auth.status });
-    const id = params.id;
-    const existing = await prisma.user.findFirst({ where:{ id, role: 'child' as any } });
-    if(!existing) return NextResponse.json({ success:false, error:'孩子不存在' }, { status:404 });
-    await prisma.user.update({ where:{ id }, data:{ isDeleted: true, deletedAt: new Date() } });
-    return NextResponse.json({ success:true });
-  }catch(e:any){ return NextResponse.json({ success:false, error: e?.message||'删除失败' }, { status:500 }); }
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await ensureChildScope(request, params.id);
+  if (!auth.ok) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+
+  const user = await prisma.user.findUnique({
+    where: { id: params.id },
+    select: { id: true, name: true, avatarUrl: true, familyId: true },
+  });
+  return NextResponse.json({ success: true, data: user });
 }
 
-// codex-ok: 2026-04-13T16:12:00+08:00
+async function updateChild(request: NextRequest, id: string) {
+  const auth = await ensureChildScope(request, id);
+  if (!auth.ok) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+
+  const contentType = request.headers.get("content-type") || "";
+  let name: string | undefined;
+  let pin: string | undefined;
+  let avatarFile: File | null = null;
+  let avatarBase64: string | undefined;
+
+  if (contentType.includes("multipart/form-data")) {
+    const form = await request.formData();
+    name = form.get("name") ? String(form.get("name")) : undefined;
+    pin = form.get("pin") ? String(form.get("pin")) : undefined;
+    avatarFile = form.get("avatar") instanceof File ? (form.get("avatar") as File) : null;
+    avatarBase64 = form.get("avatarBase64") ? String(form.get("avatarBase64")) : undefined;
+  } else {
+    const body = await request.json().catch(() => ({}));
+    name = body.name != null ? String(body.name) : undefined;
+    pin = body.pin != null ? String(body.pin) : undefined;
+    avatarBase64 = body.avatarBase64 != null ? String(body.avatarBase64) : undefined;
+  }
+
+  const data: { name?: string; pin?: string | null; avatarUrl?: string | null } = {};
+  if (name !== undefined) data.name = name.trim();
+  if (pin !== undefined) data.pin = pin.trim() ? hashPin(pin.trim()) : null;
+
+  const avatarUrl = await saveAvatar(id, avatarFile, avatarBase64);
+  if (avatarUrl) data.avatarUrl = avatarUrl;
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data,
+    select: { id: true, name: true, avatarUrl: true },
+  });
+  return NextResponse.json({ success: true, data: updated });
+}
+
+export async function PATCH(request: NextRequest, context: { params: { id: string } }) {
+  return updateChild(request, context.params.id);
+}
+
+export async function PUT(request: NextRequest, context: { params: { id: string } }) {
+  return updateChild(request, context.params.id);
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  const auth = await ensureChildScope(request, params.id);
+  if (!auth.ok) return NextResponse.json({ success: false, error: auth.error }, { status: auth.status });
+
+  await prisma.user.update({
+    where: { id: params.id },
+    data: { isDeleted: true, deletedAt: new Date() },
+  });
+  return NextResponse.json({ success: true });
+}

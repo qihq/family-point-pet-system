@@ -1,6 +1,5 @@
-import { PrismaClient, PetStatus, PetAction } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { PetStatus, PetAction } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
 // Default hourly decay configuration
 const DECAY_CONFIG = {

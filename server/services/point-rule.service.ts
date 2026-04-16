@@ -1,6 +1,5 @@
-﻿import { PrismaClient, PointsType, Frequency } from '@prisma/client';
-
-const prisma = new PrismaClient();
+﻿import { PointsType, Frequency } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
 export interface CreatePointRuleInput {
   name: string;

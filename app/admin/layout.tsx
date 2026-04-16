@@ -1,9 +1,17 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import ThemeController from "@/components/ThemeController";
+import AdminLogoutButton from "@/components/admin/AdminLogoutButton";
 import { verifyToken } from "@/lib/auth";
 import "@/styles/admin-theme.css";
-import AdminLogoutButton from "@/components/admin/AdminLogoutButton";
+
+const navItems = [
+  { href: "/admin", label: "总览", icon: "📊" },
+  { href: "/admin/parents", label: "家长账户", icon: "👨‍👩‍👧" },
+  { href: "/admin/profile", label: "管理员资料", icon: "🪪" },
+  { href: "/admin/system", label: "系统", icon: "⚙️" },
+];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const token = cookies().get("token")?.value || "";
@@ -12,52 +20,43 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/login");
   }
 
-  const items = [
-    { href: "/admin", label: "总览", icon: "📊" },
-    { href: "/admin/parents", label: "家长账号", icon: "👨‍👩‍👧" },
-    { href: "/admin/logs", label: "操作日志", icon: "📰" },
-    { href: "/admin/system", label: "系统", icon: "⚙️" },
-  ];
-
   return (
-    <div lang="zh-CN" data-theme="admin">
-      <div className="min-h-screen" style={{ background: "var(--a-bg)", color: "var(--a-text)", fontFamily: "var(--font-body)" }}>
-        <aside className="fixed inset-y-0 left-0 hidden w-[240px] md:flex" style={{ background: "var(--a-card)", borderRight: "1px solid var(--a-border)" }}>
-          <div className="flex flex-1 flex-col p-4">
-            <div className="mb-4 text-lg font-bold">{`Admin 控制台`}</div>
-            <nav className="flex-1 space-y-1">
-              {items.map((item) => (
-                <Link key={item.href} href={item.href} className="block rounded-md px-3 py-2 hover:bg-white/5" style={{ color: "var(--a-text)" }}>
-                  <span className="mr-2" aria-hidden>{item.icon}</span>
-                  <span className="align-middle">{item.label}</span>
+    <>
+      <ThemeController theme="admin" />
+      <div className="min-h-screen bg-[var(--a-bg)] text-[var(--a-text)]" style={{ fontFamily: "var(--font-body)" }}>
+        <aside className="fixed inset-y-0 left-0 hidden w-[248px] border-r border-[var(--a-border)] bg-[var(--a-card)] md:flex">
+          <div className="flex flex-1 flex-col p-5">
+            <div className="mb-6">
+              <div className="text-xs uppercase tracking-[0.22em] text-[var(--a-muted)]">Admin Console</div>
+              <div className="mt-2 text-xl font-semibold">系统运维台</div>
+            </div>
+            <nav className="flex flex-1 flex-col gap-1.5">
+              {navItems.map((item) => (
+                <Link key={item.href} href={item.href} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition hover:bg-white/5">
+                  <span aria-hidden>{item.icon}</span>
+                  <span>{item.label}</span>
                 </Link>
               ))}
             </nav>
-            <div className="mt-4">
-              <AdminLogoutButton />
-            </div>
+            <AdminLogoutButton />
           </div>
         </aside>
 
-        <div className="min-h-screen md:pl-[240px]">
-          <main className="mx-auto max-w-6xl px-4 pb-16 pt-4 md:pb-6">{children}</main>
+        <div className="min-h-screen md:pl-[248px]">
+          <main className="mx-auto max-w-6xl px-4 pb-24 pt-4 md:px-6 md:pb-8 md:pt-6">{children}</main>
         </div>
 
-        <nav className="fixed bottom-0 left-0 right-0 md:hidden" style={{ background: "var(--a-card)", borderTop: "1px solid var(--a-border)" }}>
-          <div className="grid grid-cols-4 py-2 text-center text-xs">
-            {items.map((item) => (
-              <Link key={item.href} href={item.href} className="px-1" style={{ color: "var(--a-muted)" }}>
-                <div className="flex flex-col items-center">
-                  <span className="text-lg" aria-hidden>{item.icon}</span>
-                  <span className="mt-0.5">{item.label}</span>
-                </div>
+        <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--a-border)] bg-[var(--a-card)]/95 backdrop-blur md:hidden">
+          <div className="grid grid-cols-4 py-2 text-center text-[11px]">
+            {navItems.map((item) => (
+              <Link key={item.href} href={item.href} className="flex flex-col items-center gap-1 px-1 py-1 text-[var(--a-muted)]">
+                <span className="text-lg" aria-hidden>{item.icon}</span>
+                <span>{item.label}</span>
               </Link>
             ))}
           </div>
         </nav>
       </div>
-    </div>
+    </>
   );
 }
-
-// codex-ok: 2026-04-15T13:14:00+08:00

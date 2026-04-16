@@ -1,6 +1,5 @@
-import { PrismaClient, PetAction, PetStatus, PetStage } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { PetAction, PetStatus, PetStage } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
 export async function addPetLog(
   petId: string,

@@ -2,11 +2,10 @@
 export const revalidate = 0;
 
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, Role } from '@prisma/client';
+import { Role } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { createPointRule, listPointRules } from '@/server/services/point-rule.service';
 import { verifyToken, getTokenFromHeader } from '@/lib/auth';
-
-const prisma = new PrismaClient();
 
 async function verifyRequestAuth(request: NextRequest) {
   const authHeader = request.headers.get('authorization');

@@ -1,181 +1,179 @@
-"use client";
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { cookies } from "next/headers";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { Role } from "@prisma/client";
+import { verifyToken } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
-// 极简 Tabs 组件，避免外部依赖缺失导致的编译失败
-function Tabs({ tabs, active, onChange }: { tabs: string[]; active: string; onChange: (t: string)=>void }){
+function statCard(label: string, value: string | number, hint: string) {
   return (
-    <div className="inline-flex gap-1 bg-white/80 backdrop-blur rounded-lg p-1 border border-gray-200">
-      {tabs.map(t => (
-        <button key={t}
-          onClick={()=>onChange(t)}
-          className={`px-3 py-1.5 rounded-md text-sm ${active===t? 'bg-amber-100 text-amber-800 font-medium' : 'hover:bg-gray-100 text-gray-700'}`}
-        >{t}</button>
-      ))}
+    <div className="rounded-2xl border border-[var(--p-border)] bg-[var(--p-card)] p-5 shadow-sm">
+      <div className="text-sm text-[var(--p-muted)]">{label}</div>
+      <div className="mt-2 text-3xl font-semibold">{value}</div>
+      <div className="mt-2 text-sm text-[var(--p-muted)]">{hint}</div>
     </div>
   );
 }
 
-// 简化类型，确保页面先稳定编译
-type Rule = any;
-type Kid  = { id: string; name: string; avatarUrl?: string };
-
-export default function ParentHome(){
-  const router = useRouter();
-  const [tab, setTab] = useState<'规则'|'孩子'|'宠物'|'报告'>('规则');
-  const [pendingCount, setPendingCount] = useState<number>(0);
-  const [pendingItems, setPendingItems] = useState<any[]>([]);
-
-  const [rules, setRules] = useState<Rule[]>([]);
-  const [kids, setKids] = useState<Kid[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>("");
-
-  const tabs = useMemo(()=>['规则','孩子','宠物','报告'] as const, []);
-
-  async function refreshPending(){
-    try{
-      const r = await fetch('/api/tasks/pending', { cache:'no-store', credentials:'include' });
-      const d = await r.json().catch(()=>null);
-      const list = Array.isArray(d?.data)? d.data : [];
-      setPendingCount(list.length||0);
-      setPendingItems(list.slice(0,3));
-    }catch{ setPendingCount(0); setPendingItems([]); }
+async function getParentDashboard() {
+  const token = cookies().get("token")?.value;
+  const payload = token ? await verifyToken(token) : null;
+  if (!payload || (payload.role !== Role.parent && payload.role !== Role.admin)) {
+    redirect("/login");
   }
 
-async function loadRules(){
-    setLoading(true); setError("");
-    try{
-      const r = await fetch('/api/point-rules', { cache:'no-store', credentials:'include' });
-      const d = await r.json();
-      if(r.ok && d.success){ setRules(d.data.rules||[]); } else { setError(d.error||'获取规则失败'); }
-    }catch{ setError('网络错误'); } finally{ setLoading(false); }
-  }
+  const familyId = payload.familyId;
+  const [children, pendingLogs, rulesCount, rewardCount, recentPlans, weekPoints] = await Promise.all([
+    prisma.user.findMany({
+      where: { familyId, role: Role.child, isDeleted: false },
+      select: { id: true, name: true, avatarUrl: true, streak: true, totalEarnedPoints: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.taskLog.findMany({
+      where: { note: { contains: "pending-approval" }, child: { familyId } },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: { child: { select: { name: true } }, taskPlan: { select: { title: true } } },
+    }),
+    prisma.pointRule.count({ where: { familyId, enabled: true } }),
+    prisma.rewardItem.count({ where: { familyId, enabled: true } }),
+    prisma.taskPlan.findMany({
+      where: { child: { familyId }, enabled: true },
+      orderBy: [{ scheduledAt: "asc" }, { createdAt: "desc" }],
+      take: 6,
+      include: { child: { select: { name: true } } },
+    }),
+    prisma.pointTransaction.aggregate({
+      where: { createdAt: { gte: new Date(Date.now() - 7 * 86400000) } },
+      _sum: { amount: true },
+    }),
+  ]);
 
-  async function loadKids(){
-    setLoading(true); setError("");
-    try{
-      const r = await fetch('/api/family/children', { cache:'no-store', credentials:'include' });
-      const d = await r.json();
-      if(r.ok && d.success){ setKids(d.data||[]); } else { setError(d.error||'获取孩子列表失败'); }
-    }catch{ setError('网络错误'); } finally{ setLoading(false); }
-  }
+  return {
+    children,
+    pendingLogs,
+    rulesCount,
+    rewardCount,
+    recentPlans,
+    weekPoints: weekPoints._sum.amount || 0,
+  };
+}
 
-  useEffect(()=>{ refreshPending(); }, []);
-  useEffect(()=>{
-    if(tab==='规则') loadRules();
-    if(tab==='孩子' || tab==='宠物') loadKids();
-    // 报告页仅做导航，不预取
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+export default async function ParentHome() {
+  const { children, pendingLogs, rulesCount, rewardCount, recentPlans, weekPoints } = await getParentDashboard();
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-6">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-[var(--text)]">家长首页</h1>
-          <Tabs tabs={tabs as unknown as string[]} active={tab} onChange={(t)=>setTab(t as any)} />
-          <a href="/parent/children" className="ml-2 px-3 py-2 rounded bg-[var(--primary)] text-white hover:bg-[var(--primary-600)]">新增孩子</a>
+    <div className="space-y-8">
+      <section className="rounded-[28px] bg-[linear-gradient(135deg,#ffffff_0%,#f7f6f3_55%,#eef6ff_100%)] p-6 shadow-sm">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl space-y-3">
+            <div className="text-xs uppercase tracking-[0.22em] text-[var(--p-muted)]">Family Overview</div>
+            <h1 className="text-3xl font-semibold tracking-tight">把待审核、学习计划和孩子表现放到一屏里处理。</h1>
+            <p className="text-sm leading-7 text-[var(--p-muted)]">
+              当前已接入孩子任务、积分规则、奖励兑换和宠物成长。先从待审核记录和本周计划开始处理，最能快速形成日常闭环。
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/parent/review" className="parent-primary-btn">进入审核台</Link>
+            <Link href="/parent/children" className="parent-secondary-btn">管理家庭成员</Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {statCard("待审核任务", pendingLogs.length, "优先处理孩子刚提交的任务完成记录。")}
+        {statCard("家庭成员", children.length, "当前家庭里可参与任务和奖励的孩子数量。")}
+        {statCard("启用规则", rulesCount, "当前可被提交或审核的积分规则数量。")}
+        {statCard("本周积分流动", weekPoints, "近 7 天积分收入与支出的总量。")}
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="rounded-2xl border border-[var(--p-border)] bg-[var(--p-card)] p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">待审核清单</h2>
+              <p className="mt-1 text-sm text-[var(--p-muted)]">处理后会直接影响孩子的积分和成长反馈。</p>
+            </div>
+            <Link href="/parent/review" className="text-sm font-medium text-[var(--p-accent)]">查看全部</Link>
+          </div>
+          <div className="mt-5 space-y-3">
+            {pendingLogs.length ? (
+              pendingLogs.map((log) => (
+                <div key={log.id} className="rounded-2xl border border-[var(--p-border)] bg-[var(--p-bg)] px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-medium">{log.taskPlan?.title || "自由任务"}</div>
+                      <div className="mt-1 text-sm text-[var(--p-muted)]">{log.child.name} · {log.points} 积分</div>
+                    </div>
+                    <div className="rounded-full bg-[var(--primary-50)] px-3 py-1 text-xs text-[var(--p-accent)]">待审核</div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-2xl border border-dashed border-[var(--p-border)] px-4 py-6 text-sm text-[var(--p-muted)]">
+                当前没有待审核任务，可以去完善规则或计划，让孩子端的体验更完整。
+              </div>
+            )}
+          </div>
         </div>
 
-        {pendingCount>0 && (
-          <a href="/parent/review" className="block w-full text-left px-4 py-3 rounded-lg bg-orange-50 border border-orange-200 text-orange-800">
-            有 <span className="font-semibold">{pendingCount}</span> 条待审核记录，点击前往审核
-          </a>
-        )}
-
-        {/* 规则 */}
-        {tab==='规则' && (
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">积分规则</h2>
-                <p className="text-sm text-[var(--muted)]">管理家庭积分规则，配置孩子可执行任务</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <a href="/parent" className="bg-gray-100 text-gray-800 px-3 py-2 rounded-md hover:bg-gray-200">返回主页</a>
-                <button onClick={()=>router.push('/parent/point-rules')} className="px-3 py-2 rounded bg-[var(--primary)] text-white hover:bg-[var(--primary-600)]">规则管理</button>
-              </div>
+        <div className="rounded-2xl border border-[var(--p-border)] bg-[var(--p-card)] p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold">孩子概览</h2>
+              <p className="mt-1 text-sm text-[var(--p-muted)]">看看谁最近最活跃，谁需要更多奖励目标。</p>
             </div>
-            {loading? (<div className="p-6 text-gray-500">加载中…</div>) : error? (<div className="p-6 text-red-600">{error}</div>) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs text-gray-500">规则名称</th>
-                      <th className="px-6 py-3 text-left text-xs text-gray-500">分类</th>
-                      <th className="px-6 py-3 text-left text-xs text-gray-500">积分</th>
-                      <th className="px-6 py-3 text-left text-xs text-gray-500">状态</th>
-                      <th className="px-6 py-3 text-left text-xs text-gray-500">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {rules.length===0? (
-                      <tr><td colSpan={5} className="px-6 py-6 text-center text-gray-500">暂无规则，点击右上角“规则管理”新建</td></tr>
-                    ) : rules.map((r: any)=>(
-                      <tr key={r.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-3 text-sm text-gray-900">{r.name}</td>
-                        <td className="px-6 py-3 text-sm text-gray-600">{r.category}</td>
-                        <td className="px-6 py-3 text-sm text-gray-900">{r.pointsType==='range'? `${r.pointsMin||0}~${r.pointsMax||0}` : `+${r.points}`}</td>
-                        <td className="px-6 py-3 text-sm">{r.enabled? '启用' : '禁用'}</td>
-                        <td className="px-6 py-3 text-sm text-blue-600"><a href={`/parent/point-rules?edit=${r.id}`}>编辑</a></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <Link href="/parent/children" className="text-sm font-medium text-[var(--p-accent)]">管理孩子</Link>
           </div>
-        )}
-
-        {/* 孩子 */}
-        {tab==='孩子' && (
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">孩子管理</h2>
-              <a href="/parent/children" className="px-3 py-2 rounded bg-[var(--primary)] text-white hover:bg-[var(--primary-600)]">进入管理页</a>
-            </div>
-            {loading? (<div className="p-6 text-gray-500">加载中…</div>) : error? (<div className="p-6 text-red-600">{error}</div>) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
-                {kids.map(k=> (
-                  <div key={k.id} className="border rounded-lg p-4 flex items-center gap-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img alt="avatar" src={k.avatarUrl||'/avatar.png'} className="w-10 h-10 rounded-full object-cover"/>
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-800">{k.name}</div>
-                      <div className="text-xs text-gray-500">ID: {k.id}</div>
-                    </div>
-                    <a className="text-blue-600 text-sm" href={`/parent/children?edit=${k.id}`}>编辑</a>
+          <div className="mt-5 space-y-3">
+            {children.length ? (
+              children.map((child) => (
+                <div key={child.id} className="flex items-center gap-4 rounded-2xl border border-[var(--p-border)] px-4 py-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--primary-50)] text-sm font-semibold text-[var(--p-accent)]">
+                    {child.name.slice(0, 1)}
                   </div>
-                ))}
-                {kids.length===0 && (<div className="text-gray-500">暂无孩子，请在“孩子管理”添加</div>)}
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium">{child.name}</div>
+                    <div className="mt-1 text-sm text-[var(--p-muted)]">累计积分 {child.totalEarnedPoints} · 连续打卡 {child.streak} 天</div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="rounded-2xl border border-dashed border-[var(--p-border)] px-4 py-6 text-sm text-[var(--p-muted)]">
+                还没有孩子账号，先在家庭成员页新增一个孩子，主流程才会真正跑起来。
               </div>
             )}
           </div>
-        )}
+        </div>
+      </section>
 
-        {/* 宠物：先给出导航，避免页面内复杂编辑造成再次语法错误 */}
-        {tab==='宠物' && (
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">宠物管理</h2>
-              <div className="text-sm text-gray-600">前往孩子端宠物页查看：/child/pet</div>
-            </div>
-            <div className="p-6 text-gray-700">此处后续可继续聚合每个孩子的 3D 宠物设置与模型上传入口。</div>
+      <section className="rounded-2xl border border-[var(--p-border)] bg-[var(--p-card)] p-5 shadow-sm">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">近期计划与奖励状态</h2>
+            <p className="mt-1 text-sm text-[var(--p-muted)]">这里能快速看出计划是否充足，奖励池是否有吸引力。</p>
           </div>
-        )}
-
-        {/* 报告 */}
-        {tab==='报告' && (
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">报告</h2>
-              <a href="/parent/report" className="px-3 py-2 rounded bg-[var(--primary)] text-white hover:bg-[var(--primary-600)]">进入报告页</a>
+          <div className="text-sm text-[var(--p-muted)]">当前可兑换奖励 {rewardCount} 项</div>
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {recentPlans.length ? (
+            recentPlans.map((plan) => (
+              <div key={plan.id} className="rounded-2xl border border-[var(--p-border)] bg-[var(--p-bg)] px-4 py-4">
+                <div className="font-medium">{plan.title}</div>
+                <div className="mt-2 text-sm text-[var(--p-muted)]">{plan.child.name} · {plan.points} 积分</div>
+                <div className="mt-2 text-xs text-[var(--p-muted)]">
+                  {plan.frequency || "once"}
+                  {plan.scheduledAt ? ` · ${new Date(plan.scheduledAt).toLocaleString("zh-CN")}` : ""}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-2xl border border-dashed border-[var(--p-border)] px-4 py-6 text-sm text-[var(--p-muted)] md:col-span-2 xl:col-span-3">
+              还没有可执行计划，建议先去学习计划页创建每日或每周任务，再结合积分规则和奖励形成稳定循环。
             </div>
-            <div className="p-6 text-gray-700">可在报告页筛选时间范围、类型并导出 CSV。</div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

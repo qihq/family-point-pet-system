@@ -1,8 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, Role, Frequency } from '@prisma/client';
+import { Role, Frequency } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { verifyToken, getTokenFromHeader } from '@/lib/auth';
-
-const prisma = new PrismaClient();
 
 function toDateOnly(d: Date){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
 function addDays(d:Date,n:number){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }

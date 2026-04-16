@@ -1,7 +1,8 @@
-﻿"use client";
-import { useState, useEffect } from 'react';
-import PointRuleForm from '@/components/parent/point-rule-form';
-import { Frequency, PointsType } from '@prisma/client';
+"use client";
+
+import { useEffect, useState } from "react";
+import { Frequency, PointsType } from "@prisma/client";
+import PointRuleForm, { PointRuleFormData } from "@/components/parent/point-rule-form";
 
 interface PointRule {
   id: string;
@@ -16,120 +17,188 @@ interface PointRule {
   frequency: Frequency;
   maxTimes?: number | null;
   enabled: boolean;
+  targets?: Array<{ childId: string }>;
 }
 
-export default function ParentPointRulesPage(){
-  const [list,setList] = useState<PointRule[]>([]);
-  const [loading,setLoading] = useState(true);
-  const [error,setError] = useState('');
-  const [showForm,setShowForm] = useState(false);
-  const [editing,setEditing] = useState<PointRule|null>(null);
+export default function ParentPointRulesPage() {
+  const [list, setList] = useState<PointRule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<PointRule | null>(null);
 
-  async function load(){
-    setLoading(true); setError('');
-    try{
-      const r = await fetch('/api/point-rules', { cache:'no-store', credentials:'include' });
-      const d = await r.json();
-      if(!r.ok || !d.success) throw new Error(d.error||'获取规则失败');
-      setList(d.data.rules || []);
-    }catch(e:any){ setError(e.message||'网络错误'); }
-    finally{ setLoading(false); }
-  }
-  useEffect(()=>{ load(); },[]);
-
-  function openCreate(){ setEditing(null); setShowForm(true); }
-  async function openEdit(row:PointRule){
-    try{
-      const r = await fetch(`/api/point-rules/${row.id}`, { cache:'no-store', credentials:'include' });
-      const d = await r.json();
-      if(r.ok && d.success){ setEditing(d.data as PointRule); setShowForm(true); }
-    }catch{}
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch("/api/point-rules", { cache: "no-store", credentials: "include" });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "获取规则失败");
+      setList(data.data.rules || []);
+    } catch (err: any) {
+      setError(err.message || "网络错误");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  async function submit(form:any){
-    try{
-      const url = editing? `/api/point-rules/${editing.id}`: '/api/point-rules';
-      const method = editing? 'PUT':'POST';
-      const r = await fetch(url, { method, headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(form) });
-      const d = await r.json();
-      if(!r.ok || !d.success) throw new Error(d.error||'保存失败');
-      setShowForm(false); setEditing(null); await load();
-    }catch(e:any){ alert(e.message||'保存失败'); }
+  useEffect(() => {
+    load();
+  }, []);
+
+  function openCreate() {
+    setEditing(null);
+    setShowForm(true);
   }
 
-  async function toggle(row:PointRule){
-    try{
-      const r = await fetch(`/api/point-rules/${row.id}/toggle`, { method:'PATCH', credentials:'include' });
-      const d = await r.json();
-      if(!r.ok || !d.success) throw new Error(d.error||'操作失败');
+  async function openEdit(rule: PointRule) {
+    try {
+      const response = await fetch(`/api/point-rules/${rule.id}`, { cache: "no-store", credentials: "include" });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setEditing(data.data as PointRule);
+        setShowForm(true);
+      }
+    } catch {}
+  }
+
+  async function submit(form: PointRuleFormData) {
+    try {
+      const url = editing ? `/api/point-rules/${editing.id}` : "/api/point-rules";
+      const method = editing ? "PUT" : "POST";
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(form),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "保存失败");
+      setShowForm(false);
+      setEditing(null);
       await load();
-    }catch(e:any){ alert(e.message||'操作失败'); }
+    } catch (err: any) {
+      alert(err.message || "保存失败");
+    }
   }
 
-  async function remove(row:PointRule){
-    if(!confirm(`确定要删除规则 "${row.name}" 吗？`)) return;
-    try{
-      const r = await fetch(`/api/point-rules/${row.id}`, { method:'DELETE', credentials:'include' });
-      const d = await r.json();
-      if(!r.ok || !d.success) throw new Error(d.error||'删除失败');
+  async function toggle(rule: PointRule) {
+    try {
+      const response = await fetch(`/api/point-rules/${rule.id}/toggle`, { method: "PATCH", credentials: "include" });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "操作失败");
       await load();
-    }catch(e:any){ alert(e.message||'删除失败'); }
+    } catch (err: any) {
+      alert(err.message || "操作失败");
+    }
   }
 
-  const categoryText: Record<string,string> = { self_care:'自理', chores:'家务', study:'学习', test:'测试', other:'其他' };
-  const freqText: Record<string,string> = { daily:'每天', weekly:'每周', monthly:'每月', once:'一次', unlimited:'不限次数' };
+  async function remove(rule: PointRule) {
+    if (!confirm(`确定要删除规则“${rule.name}”吗？`)) return;
+    try {
+      const response = await fetch(`/api/point-rules/${rule.id}`, { method: "DELETE", credentials: "include" });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "删除失败");
+      await load();
+    } catch (err: any) {
+      alert(err.message || "删除失败");
+    }
+  }
+
+  const categoryText: Record<string, string> = { self_care: "自理", chores: "家务", study: "学习", other: "其他" };
+  const freqText: Record<string, string> = { daily: "每天", weekly: "每周", monthly: "每月", once: "一次", unlimited: "不限次数" };
+  const initialData: Partial<PointRuleFormData> | undefined = editing
+    ? {
+        name: editing.name,
+        description: editing.description ?? "",
+        category: editing.category,
+        pointsType: editing.pointsType,
+        points: editing.points,
+        pointsMin: editing.pointsMin ?? undefined,
+        pointsMax: editing.pointsMax ?? undefined,
+        needApproval: editing.needApproval,
+        frequency: editing.frequency,
+        maxTimes: editing.maxTimes ?? undefined,
+        enabled: editing.enabled,
+        targetChildIds: editing.targets?.map((target) => target.childId) ?? [],
+        applyToAll: !editing.targets?.length,
+      }
+    : undefined;
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-[var(--text)]">规则管理</h1>
-          <button onClick={openCreate} className="px-3 py-2 rounded bg-[var(--primary)] text-white hover:bg-[var(--primary-600)]">新建规则</button>
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold text-[var(--text)]">积分规则</h1>
+          <p className="mt-1 text-sm text-[var(--muted)]">把任务频率、积分、审核要求和适用孩子统一管理起来。</p>
         </div>
-
-        {loading? <div className="mt-4">加载中...</div> : error? <div className="mt-4 text-red-600">{error}</div> : (
-          <div className="mt-4 overflow-x-auto bg-white rounded-xl shadow-sm">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-600">
-                <tr>
-                  <th className="text-left px-4 py-2">名称</th>
-                  <th className="text-left px-4 py-2">分类</th>
-                  <th className="text-left px-4 py-2">频率</th>
-                  <th className="text-left px-4 py-2">积分</th>
-                  <th className="text-left px-4 py-2">状态</th>
-                  <th className="text-left px-4 py-2">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.map(r=> (
-                  <tr key={r.id} className="border-t">
-                    <td className="px-4 py-2">{r.name}</td>
-                    <td className="px-4 py-2">{categoryText[r.category] || r.category}</td>
-                    <td className="px-4 py-2">{freqText[String(r.frequency)] || r.frequency}</td>
-                    <td className="px-4 py-2">{r.pointsType==='fixed'? r.points : `${r.pointsMin??0}~${r.pointsMax??0}`}</td>
-                    <td className="px-4 py-2"><span className={`px-2 py-0.5 rounded-full text-xs ${r.enabled? 'bg-green-100 text-green-700':'bg-gray-100 text-gray-700'}`}>{r.enabled? '启用':'禁用'}</span></td>
-                    <td className="px-4 py-2">
-                      <button onClick={()=>openEdit(r)} className="text-blue-600 hover:text-blue-800">编辑</button>
-                      <button onClick={()=>toggle(r)} className="ml-3 text-amber-600 hover:text-amber-800">启停</button>
-                      <button onClick={()=>remove(r)} className="ml-3 text-rose-600 hover:text-rose-800">删除</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {showForm && (
-          <div className="fixed inset-0 bg-black/40 flex items-start justify-center p-4 z-50 overflow-y-auto">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 max-h-[80vh] overflow-y-auto">
-              <PointRuleForm initialData={editing||undefined} onSubmit={submit} onCancel={()=>{ setShowForm(false); setEditing(null); }} isEdit={!!editing} />
-            </div>
-          </div>
-        )}
+        <button onClick={openCreate} className="rounded-xl bg-[var(--primary)] px-4 py-2.5 font-medium text-white hover:bg-[var(--primary-600)]">
+          新建规则
+        </button>
       </div>
+
+      {loading ? <div className="rounded-2xl bg-white p-6 text-gray-500 shadow-sm">加载中...</div> : null}
+      {error ? <div className="rounded-2xl bg-white p-6 text-red-600 shadow-sm">{error}</div> : null}
+      {!loading && !error ? (
+        <div className="overflow-x-auto rounded-2xl bg-white shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-gray-600">
+              <tr>
+                <th className="px-4 py-3 text-left">名称</th>
+                <th className="px-4 py-3 text-left">分类</th>
+                <th className="px-4 py-3 text-left">频率</th>
+                <th className="px-4 py-3 text-left">积分</th>
+                <th className="px-4 py-3 text-left">状态</th>
+                <th className="px-4 py-3 text-left">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((rule) => (
+                <tr key={rule.id} className="border-t">
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-gray-900">{rule.name}</div>
+                    <div className="mt-1 text-xs text-gray-500">{rule.description || "无补充描述"}</div>
+                  </td>
+                  <td className="px-4 py-3">{categoryText[rule.category] || rule.category}</td>
+                  <td className="px-4 py-3">{freqText[String(rule.frequency)] || rule.frequency}</td>
+                  <td className="px-4 py-3">{rule.pointsType === "fixed" ? rule.points : `${rule.pointsMin ?? 0} ~ ${rule.pointsMax ?? 0}`}</td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-full px-2.5 py-1 text-xs ${rule.enabled ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
+                      {rule.enabled ? "启用" : "停用"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => openEdit(rule)} className="text-blue-600 hover:text-blue-800">编辑</button>
+                    <button onClick={() => toggle(rule)} className="ml-4 text-amber-600 hover:text-amber-800">启停</button>
+                    <button onClick={() => remove(rule)} className="ml-4 text-rose-600 hover:text-rose-800">删除</button>
+                  </td>
+                </tr>
+              ))}
+              {list.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-10 text-center text-gray-500">当前还没有规则，先创建一条高频任务试试。</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {showForm ? (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/45 p-4">
+          <div className="w-full max-w-2xl rounded-[28px] bg-white p-5 shadow-2xl">
+            <PointRuleForm
+              initialData={initialData}
+              onSubmit={submit}
+              onCancel={() => {
+                setShowForm(false);
+                setEditing(null);
+              }}
+              isEdit={!!editing}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
-
-// codex-ok: 2026-04-13T10:37:11+08:00

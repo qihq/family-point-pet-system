@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, Role, Frequency } from '@prisma/client';
+import { Role, Frequency } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { verifyToken, getTokenFromHeader } from '@/lib/auth';
-
-const prisma = new PrismaClient();
 
 async function ensureAuth(request: NextRequest){
   const authHeader = request.headers.get('authorization');

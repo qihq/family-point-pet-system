@@ -38,7 +38,7 @@ export default function WeeklyCalendar({ variant, weekStart, events = [], loadin
   React.useEffect(()=>{
     const from = toMonday(start); const to = endOfDay(addDays(from,6));
     onWeekChange?.(from,to);
-  },[start]);
+  },[onWeekChange, start]);
 
   const days = React.useMemo(()=>Array.from({length:7},(_,i)=> addDays(start,i)),[start]);
   const inWeek = React.useMemo(()=>{

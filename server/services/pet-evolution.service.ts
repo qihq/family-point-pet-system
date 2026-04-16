@@ -1,7 +1,6 @@
-import { PrismaClient, PetStage, PetStatus } from '@prisma/client';
+import { PetStage, PetStatus } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { addPetLog } from './pet.service';
-
-const prisma = new PrismaClient();
 
 export async function getEvolutionProgress(petId: string) {
   const pet = await prisma.pet.findUnique({ where: { id: petId } });
