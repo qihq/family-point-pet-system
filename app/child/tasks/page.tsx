@@ -24,6 +24,7 @@ interface Plan {
   frequency?: string | null;
   enabled?: boolean | null;
   needApproval?: boolean | null;
+  status?: "idle" | "pending" | "done";
 }
 
 interface PetSnapshot {
@@ -53,6 +54,7 @@ interface TaskFeedback {
 }
 
 type Notice = { tone: "success" | "error"; text: string } | null;
+type PlanStatus = "idle" | "pending" | "done";
 
 const stageLabels: Record<PetStage, string> = {
   egg: "宠物蛋",
@@ -70,6 +72,37 @@ async function readJson(response: Response) {
   }
 }
 
+function getFrequencyLabel(frequency?: string | null) {
+  switch (frequency) {
+    case "daily":
+      return "每日";
+    case "weekly":
+      return "每周";
+    case "monthly":
+      return "每月";
+    case "once":
+      return "单次";
+    default:
+      return "灵活安排";
+  }
+}
+
+function renderPlanBadge(plan: Plan, status: PlanStatus) {
+  if (status === "done") {
+    return <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">已完成</span>;
+  }
+
+  if (status === "pending") {
+    return <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">已提交审核</span>;
+  }
+
+  if (plan.needApproval) {
+    return <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">完成后需家长审核</span>;
+  }
+
+  return null;
+}
+
 export default function ChildTasksPage() {
   useRequireRole("child");
 
@@ -77,7 +110,7 @@ export default function ChildTasksPage() {
   const [plans, setPlans] = React.useState<Plan[]>([]);
   const [pet, setPet] = React.useState<PetSnapshot | null>(null);
   const [account, setAccount] = React.useState<AccountSnapshot | null>(null);
-  const [statusByPlanId, setStatusByPlanId] = React.useState<Record<string, "idle" | "pending" | "done">>({});
+  const [statusByPlanId, setStatusByPlanId] = React.useState<Record<string, PlanStatus>>({});
   const [loading, setLoading] = React.useState(true);
   const [submittingId, setSubmittingId] = React.useState<string | null>(null);
   const [selectedRule, setSelectedRule] = React.useState<Rule | null>(null);
@@ -110,8 +143,15 @@ export default function ChildTasksPage() {
         throw new Error(petData?.error || "加载宠物状态失败");
       }
 
+      const nextPlans = ((planData.data || []) as Plan[]).filter((plan) => plan.enabled !== false);
       setRules(((ruleData.data?.rules || ruleData.data) || []) as Rule[]);
-      setPlans((planData.data || []) as Plan[]);
+      setPlans(nextPlans);
+      setStatusByPlanId(
+        nextPlans.reduce<Record<string, PlanStatus>>((accumulator, plan) => {
+          accumulator[plan.id] = plan.status || "idle";
+          return accumulator;
+        }, {})
+      );
       setPet(petData.data?.pet || null);
       setAccount(petData.data?.account || null);
       setNotice(null);
@@ -129,11 +169,23 @@ export default function ChildTasksPage() {
     void load();
   }, [load]);
 
+  React.useEffect(() => {
+    function handleFocus() {
+      void load();
+    }
+
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [load]);
+
   async function submitRule() {
-    if (!selectedRule) return;
+    if (!selectedRule) {
+      return;
+    }
 
     setSubmittingId(`rule:${selectedRule.id}`);
     setNotice(null);
+
     try {
       const response = await fetch("/api/point-records", {
         method: "POST",
@@ -144,6 +196,7 @@ export default function ChildTasksPage() {
           description: ruleNote.trim() || undefined,
         }),
       });
+
       const data = await readJson(response);
       if (!response.ok || !data?.success) {
         throw new Error(data?.error || "提交失败");
@@ -157,6 +210,7 @@ export default function ChildTasksPage() {
         text: data.message || "提交成功",
       });
       setNotice({ tone: "success", text: data.message || "提交成功" });
+      void load();
     } catch (error) {
       setNotice({
         tone: "error",
@@ -170,6 +224,7 @@ export default function ChildTasksPage() {
   async function completePlan(plan: Plan) {
     setSubmittingId(plan.id);
     setNotice(null);
+
     try {
       const response = await fetch(`/api/tasks/${plan.id}/complete`, {
         method: "POST",
@@ -187,14 +242,17 @@ export default function ChildTasksPage() {
         setFeedback({
           kind: "pending",
           title: plan.title,
-          text: data.message || "已提交家长审核，稍后会有结果通知。",
+          text: data.message || "已提交家长审核，稍后会收到结果提醒。",
         });
         setNotice({ tone: "success", text: data.message || "已提交审核" });
         return;
       }
 
       const nextPet = data.data?.petGrowth?.pet as PetSnapshot | undefined;
-      if (nextPet) setPet(nextPet);
+      if (nextPet) {
+        setPet(nextPet);
+      }
+
       setStatusByPlanId((current) => ({ ...current, [plan.id]: "done" }));
       setFeedback({
         kind: "approved",
@@ -209,6 +267,7 @@ export default function ChildTasksPage() {
         tone: "success",
         text: `已完成「${plan.title}」，获得 ${data.data?.points || 0} 积分`,
       });
+      void load();
     } catch (error) {
       setNotice({
         tone: "error",
@@ -219,27 +278,23 @@ export default function ChildTasksPage() {
     }
   }
 
-  const availablePlans = plans.filter((plan) => plan.enabled !== false);
-
   return (
     <div className="min-h-screen bg-[var(--c-bg)] px-4 py-6">
       <div className="mx-auto max-w-5xl space-y-6">
         <section className="overflow-hidden rounded-[32px] border border-[#ffd9a8] bg-[linear-gradient(135deg,#fff6d9_0%,#fff1e8_52%,#ffffff_100%)] p-6 shadow-[0_18px_42px_rgba(255,159,67,0.14)]">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl space-y-3">
-              <div className="inline-flex rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-[#b45309]">
-                任务中心
-              </div>
+              <div className="inline-flex rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-[#b45309]">任务中心</div>
               <h1 className="text-3xl font-extrabold text-[var(--c-text)]" style={{ fontFamily: "var(--font-display)" }}>
-                完成任务以后，积分、审核和宠物成长会在这里连成一条线。
+                计划任务和积分规则会在这里汇总，做完后就能立刻看到成长反馈。
               </h1>
               <p className="text-sm leading-7 text-[var(--c-muted)]">
-                今天先完成计划任务，再补充规则打卡。需要家长确认的内容会自动进入待审核，审核完成后也会收到结果提醒。
+                先完成计划任务，再补充积分规则打卡。需要家长确认的内容会自动进入审核流，审核完成后页面状态也会同步刷新。
               </p>
             </div>
             <div className="grid min-w-[280px] gap-3 sm:grid-cols-3">
-              <SummaryCard label="今日可做" value={availablePlans.length} hint="按顺序完成最稳妥" />
-              <SummaryCard label="当前积分" value={account?.balance ?? 0} hint="兑换奖励时会扣这里" />
+              <SummaryCard label="今日可做" value={plans.length} hint="先完成计划任务最稳妥" />
+              <SummaryCard label="当前积分" value={account?.balance ?? 0} hint="兑换奖励时会从这里扣除" />
               <SummaryCard
                 label="宠物等级"
                 value={pet?.level ?? 1}
@@ -260,7 +315,7 @@ export default function ChildTasksPage() {
           </div>
         </section>
 
-        {notice && (
+        {notice ? (
           <div
             className="rounded-2xl px-4 py-3 text-sm"
             style={{
@@ -270,9 +325,9 @@ export default function ChildTasksPage() {
           >
             {notice.text}
           </div>
-        )}
+        ) : null}
 
-        {feedback && (
+        {feedback ? (
           <section className="rounded-3xl border border-[#ffd9a8] bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
@@ -282,16 +337,16 @@ export default function ChildTasksPage() {
                 <h2 className="mt-2 text-xl font-bold text-[var(--c-text)]">{feedback.title}</h2>
                 <p className="mt-2 text-sm text-[var(--c-muted)]">{feedback.text}</p>
               </div>
-              {feedback.kind === "approved" && (
+              {feedback.kind === "approved" ? (
                 <div className="grid gap-3 sm:grid-cols-3">
                   <FeedbackMetric label="获得积分" value={`+${feedback.points || 0}`} />
                   <FeedbackMetric label="连击奖励" value={feedback.comboBonus ? `+${feedback.comboBonus}` : "未触发"} />
                   <FeedbackMetric label="宠物经验" value={feedback.petGrowth ? `+${feedback.petGrowth.expGained}` : "0"} />
                 </div>
-              )}
+              ) : null}
             </div>
 
-            {feedback.petGrowth && (
+            {feedback.petGrowth ? (
               <div className="mt-4 grid gap-3 rounded-2xl bg-[#fff8ef] p-4 md:grid-cols-3">
                 <div>
                   <div className="text-xs text-[var(--c-muted)]">宠物阶段</div>
@@ -311,15 +366,15 @@ export default function ChildTasksPage() {
                   </div>
                 </div>
               </div>
-            )}
+            ) : null}
           </section>
-        )}
+        ) : null}
 
         <section className="overflow-hidden rounded-3xl bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
             <div>
               <h2 className="text-lg font-semibold text-[var(--c-text)]">我的计划任务</h2>
-              <p className="mt-1 text-sm text-gray-500">完成后会立即看到积分和宠物成长反馈。</p>
+              <p className="mt-1 text-sm text-gray-500">状态会根据真实完成记录和审核结果自动更新。</p>
             </div>
             <Link href="/child/plans" className="text-sm font-semibold text-[var(--c-orange)]">
               去周历查看
@@ -328,11 +383,11 @@ export default function ChildTasksPage() {
 
           {loading ? (
             <div className="p-6 text-sm text-gray-500">加载中…</div>
-          ) : availablePlans.length === 0 ? (
+          ) : plans.length === 0 ? (
             <div className="p-6 text-sm text-gray-500">今天还没有安排计划任务。</div>
           ) : (
             <div className="space-y-3 p-4">
-              {availablePlans.map((plan) => {
+              {plans.map((plan) => {
                 const status = statusByPlanId[plan.id] || "idle";
                 return (
                   <article key={plan.id} className="rounded-2xl border border-[#f6e3d1] bg-[#fffdfa] p-4">
@@ -340,25 +395,11 @@ export default function ChildTasksPage() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="text-base font-semibold text-[var(--c-text)]">{plan.title}</h3>
-                          {plan.needApproval && (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                              需家长审核
-                            </span>
-                          )}
-                          {status === "done" && (
-                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                              已完成
-                            </span>
-                          )}
-                          {status === "pending" && (
-                            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">
-                              已提交审核
-                            </span>
-                          )}
+                          {renderPlanBadge(plan, status)}
                         </div>
                         <p className="mt-2 text-sm text-gray-500">{plan.description || "完成后会同步记录到成长链路里。"}</p>
                         <div className="mt-3 text-xs text-gray-500">
-                          {plan.frequency || "once"} · +{plan.points} 积分
+                          {getFrequencyLabel(plan.frequency)} · +{plan.points} 积分
                         </div>
                       </div>
 
@@ -367,7 +408,13 @@ export default function ChildTasksPage() {
                         disabled={status !== "idle" || submittingId === plan.id}
                         className="rounded-2xl bg-[var(--c-orange)] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {submittingId === plan.id ? "提交中…" : status === "pending" ? "等待审核" : status === "done" ? "今天已完成" : "完成任务"}
+                        {submittingId === plan.id
+                          ? "提交中…"
+                          : status === "pending"
+                            ? "等待审核"
+                            : status === "done"
+                              ? "今天已完成"
+                              : "完成任务"}
                       </button>
                     </div>
                   </article>
@@ -396,9 +443,7 @@ export default function ChildTasksPage() {
                       <h3 className="font-semibold text-[var(--c-text)]">{rule.name}</h3>
                       <p className="mt-2 text-sm text-gray-500">{rule.description || "完成后可以提交给家长确认。"}</p>
                     </div>
-                    <div className="rounded-full bg-[#fff1df] px-3 py-1 text-sm font-semibold text-[var(--c-orange)]">
-                      +{rule.points}
-                    </div>
+                    <div className="rounded-full bg-[#fff1df] px-3 py-1 text-sm font-semibold text-[var(--c-orange)]">+{rule.points}</div>
                   </div>
                   <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
                     <span>{rule.category || "未分类"}</span>
@@ -417,7 +462,7 @@ export default function ChildTasksPage() {
         </section>
       </div>
 
-      {selectedRule && (
+      {selectedRule ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-[28px] bg-white p-5 shadow-xl">
             <div className="flex items-start justify-between gap-4">
@@ -472,7 +517,7 @@ export default function ChildTasksPage() {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
