@@ -155,26 +155,52 @@ export async function requireRequestAuth(
   return { ok: true, payload, token };
 }
 
-export function setSessionCookie(response: NextResponse, token: string) {
+function shouldUseSecureCookie(request?: Pick<NextRequest, "headers" | "nextUrl">) {
+  const override = process.env.COOKIE_SECURE;
+  if (override === "true") {
+    return true;
+  }
+  if (override === "false") {
+    return false;
+  }
+
+  const forwardedProto = request?.headers.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
+  if (forwardedProto) {
+    return forwardedProto === "https";
+  }
+
+  const protocol = request?.nextUrl?.protocol?.toLowerCase();
+  if (protocol) {
+    return protocol === "https:";
+  }
+
+  return process.env.NODE_ENV === "production";
+}
+
+export function setSessionCookie(
+  response: NextResponse,
+  token: string,
+  request?: Pick<NextRequest, "headers" | "nextUrl">
+) {
   response.cookies.set({
     name: TOKEN_COOKIE_NAME,
     value: token,
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookie(request),
     path: "/",
     maxAge: TOKEN_MAX_AGE_SECONDS,
   });
   return response;
 }
 
-export function clearSessionCookie(response: NextResponse) {
+export function clearSessionCookie(response: NextResponse, request?: Pick<NextRequest, "headers" | "nextUrl">) {
   response.cookies.set({
     name: TOKEN_COOKIE_NAME,
     value: "",
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookie(request),
     path: "/",
     maxAge: 0,
   });

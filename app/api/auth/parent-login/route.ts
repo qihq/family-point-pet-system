@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       { ...createLoginSuccess(createSessionUser({ userId: user.id, role: user.role, familyId: user.familyId }, user.name)), token },
       { status: 200 }
     );
-    return setSessionCookie(response, token);
+    return setSessionCookie(response, token, request);
   } catch (error) {
     console.error("家长登录失败:", error);
     return NextResponse.json(createLoginError("登录失败，请稍后重试。"), { status: 500 });
