@@ -1,19 +1,7 @@
-﻿# All-in-One (Alpine, local copy of Postgres libs)
+# Legacy filename kept for Synology packaging workflow.
+# The runtime now reuses the Debian-based family-point:openssl image.
 FROM family-point:openssl AS runner
 WORKDIR /app
-
-# Copy PostgreSQL binaries, libs, and share files from local postgres:16-alpine image
-COPY --from=postgres:16-alpine /usr/local/bin/ /usr/local/bin/
-COPY --from=postgres:16-alpine /usr/local/lib/ /usr/local/lib/
-COPY --from=postgres:16-alpine /usr/local/share/postgresql/ /usr/local/share/postgresql/
-COPY --from=postgres:16-alpine /usr/lib/ /usr/lib/
-COPY --from=postgres:16-alpine /usr/share/icu/ /usr/share/icu/
-COPY --from=postgres:16-alpine /usr/share/zoneinfo/ /usr/share/zoneinfo/
-
-# Create postgres user and data dir
-RUN apk add --no-cache su-exec wget openssl1.1-compat && \
-    addgroup -S postgres && adduser -S -G postgres postgres && \
-    mkdir -p /var/lib/postgresql/data && chown -R postgres:postgres /var/lib/postgresql
 
 ENV NODE_ENV=production \
     PORT=3000 \
@@ -23,12 +11,14 @@ ENV NODE_ENV=production \
     POSTGRES_USER=fp_user \
     POSTGRES_PASSWORD=fp_pass_please_change
 
-COPY docker-entrypoint-aio-alpine.sh /app/docker-entrypoint-aio-alpine.sh
-RUN sed -i 's/\r$//' /app/docker-entrypoint-aio-alpine.sh && chmod +x /app/docker-entrypoint-aio-alpine.sh
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends postgresql postgresql-contrib tini && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /var/lib/postgresql/data && chown -R postgres:postgres /var/lib/postgresql
+
+COPY docker-entrypoint-aio.sh /app/docker-entrypoint-aio.sh
+RUN sed -i 's/\r$//' /app/docker-entrypoint-aio.sh && chmod +x /app/docker-entrypoint-aio.sh
 
 EXPOSE 3000
-ENTRYPOINT ["/app/docker-entrypoint-aio-alpine.sh"]
-
-
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD wget -qO- http://localhost:3000/api/health || exit 1
+ENTRYPOINT ["/usr/bin/tini","--","/app/docker-entrypoint-aio.sh"]
