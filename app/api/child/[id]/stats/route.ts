@@ -1,4 +1,4 @@
-import { RecordStatus, Role } from "@prisma/client";
+import { Frequency, RecordStatus, Role } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireRequestAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -12,6 +12,58 @@ function approvedRecordWhere(childId: string, start: Date, end: Date) {
     points: { gt: 0 },
     OR: [{ reviewedAt: { gte: start, lte: end } }, { reviewedAt: null, createdAt: { gte: start, lte: end } }],
   };
+}
+
+function startOfDay(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+}
+
+function startOfWeek(date: Date) {
+  const weekday = (date.getDay() + 6) % 7;
+  const start = startOfDay(date);
+  start.setDate(start.getDate() - weekday);
+  return start;
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
+}
+
+type RuleProgressLike = {
+  frequency: Frequency;
+  maxTimes: number | null;
+  createdAt: Date;
+};
+
+function countExpectedRuleOccurrences(rule: RuleProgressLike, dates: string[], end: Date) {
+  if (rule.frequency === "unlimited") {
+    return 0;
+  }
+
+  const createdKey = dateKey(rule.createdAt);
+  const activeDates = dates.filter((current) => current >= createdKey && current <= dateKey(end));
+  if (activeDates.length === 0) {
+    return 0;
+  }
+
+  const limit = Math.max(1, Number(rule.maxTimes ?? 1));
+
+  switch (rule.frequency) {
+    case "daily":
+      return activeDates.length * limit;
+    case "weekly": {
+      const weeks = new Set(activeDates.map((current) => dateKey(startOfWeek(new Date(current)))));
+      return weeks.size * limit;
+    }
+    case "monthly": {
+      const months = new Set(activeDates.map((current) => dateKey(startOfMonth(new Date(current)))));
+      return months.size * limit;
+    }
+    case "once":
+      return 1;
+    default:
+      return 0;
+  }
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
@@ -45,7 +97,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const month = monthRange();
     const week = weekRange();
 
-    const [earnedLogs, approvedRecords, allEarnTask, allEarnRule, monthEarnTask, monthEarnRule, weekEarnTask, weekEarnRule, plans, completedLogs, redeems] = await Promise.all([
+    const [earnedLogs, approvedRecords, allEarnTask, allEarnRule, monthEarnTask, monthEarnRule, weekEarnTask, weekEarnRule, plans, completedLogs, rules, redeems] = await Promise.all([
       prisma.taskLog.findMany({
         where: {
           childId,
@@ -116,6 +168,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         },
         select: { taskPlanId: true, createdAt: true, note: true },
       }),
+      prisma.pointRule.findMany({
+        where: {
+          familyId: auth.payload.familyId,
+          enabled: true,
+          OR: [
+            { targets: { none: {} } },
+            { targets: { some: { childId } } },
+          ],
+        },
+        select: {
+          id: true,
+          frequency: true,
+          maxTimes: true,
+          createdAt: true,
+        },
+      }),
       prisma.redeemLog.findMany({
         where: { childId },
         orderBy: { createdAt: "desc" },
@@ -149,6 +217,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         }
       }
     }
+    for (const rule of rules) {
+      expectedCount += countExpectedRuleOccurrences(rule, dates, end);
+    }
 
     const completedKeys = new Set<string>();
     for (const log of completedLogs) {
@@ -157,6 +228,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }
       completedKeys.add(`${log.taskPlanId}-${dateKey(log.createdAt)}`);
     }
+    const completedRuleCount = approvedRecords.length;
 
     const activities = [
       ...earnedLogs.map((log) => ({
@@ -187,8 +259,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           total: (allEarnTask._sum.points || 0) + (allEarnRule._sum.points || 0),
         },
         donut: {
-          completed: completedKeys.size,
-          todo: Math.max(0, expectedCount - completedKeys.size),
+          completed: completedKeys.size + completedRuleCount,
+          todo: Math.max(0, expectedCount - (completedKeys.size + completedRuleCount)),
         },
         activities,
         redeems: redeems.map((redeem) => ({
