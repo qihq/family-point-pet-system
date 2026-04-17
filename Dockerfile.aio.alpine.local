@@ -1,6 +1,6 @@
 # Legacy filename kept for Synology packaging workflow.
-# The runtime now reuses the Debian-based family-point:openssl image.
-FROM family-point:openssl AS runner
+# Runtime is PostgreSQL 16 based so existing all-in-one data directories remain compatible.
+FROM postgres:16-bookworm AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production \
@@ -12,10 +12,23 @@ ENV NODE_ENV=production \
     POSTGRES_PASSWORD=fp_pass_please_change
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends postgresql postgresql-contrib tini && \
+    apt-get install -y --no-install-recommends tini ca-certificates openssl && \
     rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /var/lib/postgresql/data && chown -R postgres:postgres /var/lib/postgresql
+COPY --from=family-point:openssl /usr/local/bin/node /usr/local/bin/node
+COPY --from=family-point:openssl /usr/local/bin/npm /usr/local/bin/npm
+COPY --from=family-point:openssl /usr/local/bin/npx /usr/local/bin/npx
+COPY --from=family-point:openssl /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
+    ln -sf ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+
+COPY --from=family-point:openssl /app/package*.json ./
+COPY --from=family-point:openssl /app/node_modules ./node_modules
+COPY --from=family-point:openssl /app/.next ./.next
+COPY --from=family-point:openssl /app/public ./public
+COPY --from=family-point:openssl /app/prisma ./prisma
+COPY lib ./lib
+COPY tsconfig.json ./tsconfig.json
 
 COPY docker-entrypoint-aio.sh /app/docker-entrypoint-aio.sh
 RUN sed -i 's/\r$//' /app/docker-entrypoint-aio.sh && chmod +x /app/docker-entrypoint-aio.sh

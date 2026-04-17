@@ -30,22 +30,48 @@ fi
 
 log(){ echo "[aio] $*"; }
 
+as_pg() {
+  su -s /bin/bash postgres -c "$*"
+}
+
 # Ensure data directory ownership
 mkdir -p "$DATA_DIR"
 chown -R postgres:postgres "$DATA_DIR"
 
+if [ -f "$DATA_DIR/postmaster.pid" ]; then
+  STALE_PID="$(head -n 1 "$DATA_DIR/postmaster.pid" | tr -d '[:space:]' || true)"
+  if [ -n "$STALE_PID" ] && ! ps -p "$STALE_PID" >/dev/null 2>&1; then
+    log "Removing stale postmaster.pid"
+    rm -f "$DATA_DIR/postmaster.pid"
+  fi
+fi
+
 # Init database if empty (no PG_VERSION)
 if [ ! -s "$DATA_DIR/PG_VERSION" ]; then
   log "Initializing PostgreSQL cluster at $DATA_DIR"
-  su -s /bin/bash postgres -c "initdb -D '$DATA_DIR' -E UTF8" >/dev/null
+  as_pg "initdb -D '$DATA_DIR' -E UTF8" >/dev/null
 fi
 
 # Start postgres (listen only on localhost)
-su -s /bin/bash postgres -c "pg_ctl -D '$DATA_DIR' -o \"-c listen_addresses=localhost -p 5432\" -w start" >/dev/null
-trap 'log "Stopping PostgreSQL"; su -s /bin/bash postgres -c "pg_ctl -D '$DATA_DIR' -m fast stop" >/dev/null || true' EXIT
+as_pg "pg_ctl -D '$DATA_DIR' -o \"-c listen_addresses=localhost -p 5432\" -w start" >/dev/null
+trap 'log "Stopping PostgreSQL"; as_pg "pg_ctl -D '\''$DATA_DIR'\'' -m fast stop" >/dev/null || true' EXIT
 
 # Ensure user/database exist
-psql_cmd(){ su -s /bin/bash postgres -c "psql -v ON_ERROR_STOP=1 -At -c \"$1\""; }
+psql_cmd(){ as_pg "psql -d postgres -v ON_ERROR_STOP=1 -At -c \"$1\""; }
+
+wait_for_postgres() {
+  local retries=60
+  until psql_cmd "SELECT 1" >/dev/null 2>&1; do
+    retries=$((retries - 1))
+    if [ "$retries" -le 0 ]; then
+      log "PostgreSQL did not become ready in time"
+      exit 1
+    fi
+    sleep 2
+  done
+}
+
+wait_for_postgres
 
 EXISTS_USER=$(psql_cmd "SELECT 1 FROM pg_roles WHERE rolname='${POSTGRES_USER}'" || true)
 if [ -z "$EXISTS_USER" ]; then
