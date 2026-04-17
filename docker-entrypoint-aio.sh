@@ -2,9 +2,29 @@
 set -euo pipefail
 
 DATA_DIR="/var/lib/postgresql/data"
-PG_BIN="/usr/lib/postgresql/15/bin"
-# Some distros put binaries in PATH; fallback to calling postgres directly
-if ! command -v pg_ctl >/dev/null 2>&1; then
+find_pg_bin() {
+  if command -v pg_ctl >/dev/null 2>&1 && command -v initdb >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local candidate=""
+  candidate="$(find /usr/lib/postgresql -maxdepth 3 -type f -name pg_ctl 2>/dev/null | head -n 1 || true)"
+  if [ -n "$candidate" ]; then
+    dirname "$candidate"
+    return 0
+  fi
+
+  candidate="$(find /usr/local -maxdepth 3 -type f -name pg_ctl 2>/dev/null | head -n 1 || true)"
+  if [ -n "$candidate" ]; then
+    dirname "$candidate"
+    return 0
+  fi
+
+  return 1
+}
+
+PG_BIN="$(find_pg_bin || true)"
+if [ -n "$PG_BIN" ]; then
   export PATH="$PATH:$PG_BIN"
 fi
 
