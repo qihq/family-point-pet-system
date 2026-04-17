@@ -1,6 +1,6 @@
 import { PrismaClient, Role, PointsType, Frequency, PetStage } from "@prisma/client";
-import { hashPassword, hashPin } from "@/lib/auth";
-import { logger } from "@/lib/logger";
+import { hashPassword, hashPin } from "../lib/credentials";
+import { logger } from "../lib/logger";
 
 const prisma = new PrismaClient();
 
@@ -56,7 +56,12 @@ async function main() {
   const existingAdmin = await prisma.user.findFirst({ where: { name: adminName } });
   if (!existingAdmin) {
     await prisma.user.create({
-      data: { name: adminName, role: Role.admin, password: adminPassHash, familyId: sysFamily.id },
+      data: {
+        name: adminName,
+        role: Role.admin,
+        password: adminPassHash,
+        familyId: sysFamily.id,
+      },
     });
   } else if (existingAdmin.role !== Role.admin) {
     await prisma.user.update({
@@ -80,7 +85,12 @@ async function main() {
         data: { familyId: family.id, role: Role.parent, password: parentPasswordHash },
       })
     : await prisma.user.create({
-        data: { name: "parent", role: Role.parent, password: parentPasswordHash, familyId: family.id },
+        data: {
+          name: "parent",
+          role: Role.parent,
+          password: parentPasswordHash,
+          familyId: family.id,
+        },
       });
 
   const pin1 = randomPin();
@@ -138,11 +148,44 @@ async function main() {
   logger.info("Pets: created for child1 & child2");
 
   const rules = [
-    { id: "rule-brush-teeth", name: "刷牙", description: "早晚刷牙各一次", category: "自理", points: 5, needApproval: false, frequency: Frequency.daily },
-    { id: "rule-tidy-toys", name: "收拾玩具", description: "整理玩具与书桌", category: "家务", points: 10, needApproval: true, frequency: Frequency.daily },
-    { id: "rule-reading", name: "阅读", description: "阅读 20 分钟", category: "学习", points: 15, needApproval: false, frequency: Frequency.daily },
-    { id: "rule-early-sleep", name: "早睡", description: "22:00 前入睡", category: "自理", points: 10, needApproval: true, frequency: Frequency.daily },
+    {
+      id: "rule-brush-teeth",
+      name: "刷牙",
+      description: "早晚刷牙各一次",
+      category: "自理",
+      points: 5,
+      needApproval: false,
+      frequency: Frequency.daily,
+    },
+    {
+      id: "rule-tidy-toys",
+      name: "收拾玩具",
+      description: "整理玩具与书桌",
+      category: "家务",
+      points: 10,
+      needApproval: true,
+      frequency: Frequency.daily,
+    },
+    {
+      id: "rule-reading",
+      name: "阅读",
+      description: "阅读 20 分钟",
+      category: "学习",
+      points: 15,
+      needApproval: false,
+      frequency: Frequency.daily,
+    },
+    {
+      id: "rule-early-sleep",
+      name: "早睡",
+      description: "22:00 前入睡",
+      category: "自理",
+      points: 10,
+      needApproval: true,
+      frequency: Frequency.daily,
+    },
   ];
+
   for (const rule of rules) {
     await prisma.pointRule.upsert({
       where: { id: rule.id },

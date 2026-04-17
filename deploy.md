@@ -10,7 +10,7 @@
    - `/volume1/docker/family-point/db_data`
 3. 准备一个强随机字符串，后面要填到 `NEXTAUTH_SECRET`。
 4. 把最新 tar 文件上传到 NAS。
-   - 例如：`family-point-allinone_20260416.tar`
+   - 例如：`family-point-allinone_20260417.tar`
 
 ## 方案 A：导入 tar 并创建容器
 
@@ -20,7 +20,7 @@
 2. 进入“镜像”。
 3. 点击“新增”或“导入”。
 4. 选择“从文件添加”。
-5. 选中 `family-point-allinone_20260416.tar`。
+5. 选中 `family-point-allinone_20260417.tar`。
 6. 等待导入完成。
 
 导入成功后，你会看到一个 `family-point-allinone` 镜像。
@@ -93,14 +93,18 @@
 
 ### 第 8 步：首次登录
 
-如果你启用了 `STARTUP_SEED=true`，默认账号一般会被写入：
+如果你启用了 `STARTUP_SEED=true`，默认账号会被写入：
 
 - 管理员：`admin / admin123`
 - 家长：`parent / parent123`
-- 孩子 1：`child1 / 1234`
-- 孩子 2：`child2 / 5678`
+- 孩子 1：`child1 / 随机 6 位 PIN`
+- 孩子 2：`child2 / 随机 6 位 PIN`
 
-初始化完成后建议立即修改默认密码和 PIN。
+注意：
+
+- 孩子账号的 PIN 每次初始化都是随机生成的，不是固定 `1234 / 5678`
+- 首次启动成功后，请到容器日志中查找 `=== FIRST RUN CREDENTIALS ===`
+- 初始化完成后建议立即修改默认密码和 PIN
 
 ### 第 9 步：完成首次部署后的收尾
 
@@ -116,7 +120,7 @@
 
 以后升级时，按下面的步骤做即可：
 
-1. 导出或备份这两个目录。
+1. 备份这两个目录。
    - `/volume1/docker/family-point/public`
    - `/volume1/docker/family-point/db_data`
 2. 在 `Container Manager` 导入新的 tar。
@@ -139,13 +143,22 @@
 2. `public/uploads/avatars` 和 `public/uploads/rewards` 是否存在
 3. 目录是否有写权限
 
-### 2. 登录不上
+### 2. 登录总是提示“用户名或密码错误”
 
 优先检查：
 
-1. `NEXTAUTH_SECRET` 是否填写了
+1. `NEXTAUTH_SECRET` 是否填写
 2. 第一次部署时是否启用了 `STARTUP_SEED=true`
-3. 初始化成功后是否又重复带着 `STARTUP_SEED=true` 重启了容器
+3. 容器日志里是否出现 `=== FIRST RUN CREDENTIALS ===`
+4. 如果日志里出现 `Seed failed`、`Cannot find module`、Prisma 初始化失败等错误，说明默认账号根本没有创建成功
+
+如果你不保留旧数据，最稳妥的处理方式是：
+
+1. 停掉容器
+2. 删除或清空 `db_data`
+3. 用最新 tar 重新导入镜像
+4. 重新创建容器，并在首次启动时设置 `STARTUP_SEED=true`
+5. 等日志打印出 `=== FIRST RUN CREDENTIALS ===` 后再登录
 
 ### 3. 升级后数据没了
 
@@ -171,7 +184,7 @@
 最稳妥的方式是：
 
 1. 停掉容器
-2. 备份旧的 `db_data`
+2. 备份旧的 `db_data`（如果你还需要）
 3. 清空或更换新的 `db_data` 目录
 4. 再次以 `STARTUP_SEED=true` 启动
 
@@ -208,7 +221,7 @@ docker build -t family-point-allinone:latest -f Dockerfile.aio.alpine.local .
 3. 导出 tar
 
 ```bash
-docker save -o outputs/family-point-allinone_20260416.tar family-point-allinone:latest
+docker save -o outputs/family-point-allinone_20260417.tar family-point-allinone:latest
 ```
 
 4. 然后按上面的“方案 A”去群晖导入和运行。

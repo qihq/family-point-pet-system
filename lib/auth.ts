@@ -1,12 +1,11 @@
-import { scryptSync, randomBytes, timingSafeEqual } from "node:crypto";
 import { jwtVerify, SignJWT } from "jose";
 import type { NextRequest, NextResponse } from "next/server";
 import { Role } from "@prisma/client";
 import type { JWTPayload, LoginResult, SessionUser } from "@/types/auth";
+export { hashPassword, hashPin, verifyPassword, verifyPin, isLegacySecret } from "./credentials";
 
 const TOKEN_COOKIE_NAME = "token";
 const TOKEN_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
-const SCRYPT_PREFIX = "scrypt";
 
 type RequestAuthResult =
   | { ok: true; payload: JWTPayload; token: string }
@@ -18,46 +17,6 @@ function getJwtSecret(): Uint8Array {
     throw new Error("NEXTAUTH_SECRET is required");
   }
   return new TextEncoder().encode(secret);
-}
-
-function safeCompareText(input: string, stored: string): boolean {
-  const inputBuffer = Buffer.from(input);
-  const storedBuffer = Buffer.from(stored);
-  if (inputBuffer.length !== storedBuffer.length) {
-    return false;
-  }
-  return timingSafeEqual(inputBuffer, storedBuffer);
-}
-
-function parseHashedSecret(stored: string) {
-  const [scheme, saltHex, hashHex] = stored.split("$");
-  if (scheme !== SCRYPT_PREFIX || !saltHex || !hashHex) {
-    return null;
-  }
-  return {
-    salt: Buffer.from(saltHex, "hex"),
-    hash: Buffer.from(hashHex, "hex"),
-  };
-}
-
-function hashSecret(secret: string): string {
-  const salt = randomBytes(16);
-  const hash = scryptSync(secret, salt, 64);
-  return `${SCRYPT_PREFIX}$${salt.toString("hex")}$${hash.toString("hex")}`;
-}
-
-function verifySecret(input: string, stored: string): boolean {
-  if (!stored) {
-    return false;
-  }
-
-  const parsed = parseHashedSecret(stored);
-  if (!parsed) {
-    return safeCompareText(input, stored);
-  }
-
-  const computed = scryptSync(input, parsed.salt, parsed.hash.length);
-  return timingSafeEqual(computed, parsed.hash);
 }
 
 export async function generateToken(payload: JWTPayload): Promise<string> {
@@ -92,26 +51,6 @@ export function createSessionUser(payload: JWTPayload, name: string): SessionUse
     role: payload.role,
     familyId: payload.familyId,
   };
-}
-
-export function hashPassword(password: string): string {
-  return hashSecret(password.trim());
-}
-
-export function hashPin(pin: string): string {
-  return hashSecret(pin.trim());
-}
-
-export function verifyPassword(input: string, stored: string): boolean {
-  return verifySecret(input.trim(), stored.trim());
-}
-
-export function verifyPin(input: string, stored: string): boolean {
-  return verifySecret(input.trim(), stored.trim());
-}
-
-export function isLegacySecret(stored?: string | null): boolean {
-  return !!stored && !stored.startsWith(`${SCRYPT_PREFIX}$`);
 }
 
 export function createLoginSuccess(user: SessionUser): LoginResult {

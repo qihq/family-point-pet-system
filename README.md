@@ -1,13 +1,13 @@
 # 家庭积分宠物系统
 
-一个面向家庭场景的积分 + 宠物成长应用。
+一个面向家庭场景的“积分 + 宠物成长”应用。
 
-孩子完成计划任务或积分规则打卡后获得积分，家长负责审核、奖励和计划管理，管理员负责账户运维和系统维护。项目基于 Next.js App Router、Prisma 和 PostgreSQL，支持本地开发，也支持导出适合群晖 NAS 导入的 All-in-One Docker 镜像。
+孩子完成计划任务或积分规则后获得积分，家长负责审核、奖励和计划管理，管理员负责账号运维和系统维护。项目基于 Next.js App Router、Prisma 和 PostgreSQL，支持本地开发，也支持导出适合群晖 NAS 导入的 All-in-One Docker 镜像。
 
 ## 当前版本包含
 
 - 登录入口
-  - 登录页已收敛为家长 / 孩子 / 管理员三个清晰入口
+  - 登录页收敛为家长 / 孩子 / 管理员三个清晰入口
   - 页面不再展示默认密码提示，避免和真实环境混淆
 - 孩子端
   - 首页、任务中心、周计划、成长页、奖励页、记录页
@@ -19,9 +19,9 @@
   - 待审核中心、孩子概览、积分规则、奖励库存、兑换记录、循环任务
   - 审核流与通知联动
 - 管理员端
-  - 家长账户管理、头像维护、系统健康和后台运维入口
+  - 家长账号管理、头像维护、系统健康和后台运维入口
 - 工程基线
-  - Prisma 共享单例
+  - Prisma 统一走共享单例
   - 认证逐步统一到 `requireRequestAuth`
   - `npx tsc --noEmit --pretty false`、`npm run lint`、`npm run build` 可通过
 
@@ -39,10 +39,14 @@
 
 - 管理员：`admin / admin123`
 - 家长：`parent / parent123`
-- 孩子 1：`child1 / 1234`
-- 孩子 2：`child2 / 5678`
+- 孩子 1：`child1 / 随机 6 位 PIN`
+- 孩子 2：`child2 / 随机 6 位 PIN`
 
-初始化完成后，建议马上修改默认密码和 PIN。
+注意：
+
+- 两个孩子账号的 PIN 不是固定值，而是在 seed 时随机生成。
+- 首次启动成功后，请到容器日志里查找 `=== FIRST RUN CREDENTIALS ===`，里面会打印实际 PIN。
+- 初始化完成后，建议马上修改默认密码和 PIN。
 
 ## 目录说明
 
@@ -102,7 +106,7 @@ docker build -t family-point-allinone:latest -f Dockerfile.aio.alpine.local .
 如果需要额外保留一个日期标签：
 
 ```bash
-docker tag family-point-allinone:latest family-point-allinone:20260416
+docker tag family-point-allinone:latest family-point-allinone:20260417
 ```
 
 ## 导出 tar 给群晖 NAS
@@ -111,7 +115,7 @@ docker tag family-point-allinone:latest family-point-allinone:20260416
 
 ```bash
 mkdir -p outputs
-docker save -o outputs/family-point-allinone_20260416.tar family-point-allinone:latest
+docker save -o outputs/family-point-allinone_20260417.tar family-point-allinone:latest
 ```
 
 导入步骤：
@@ -119,7 +123,7 @@ docker save -o outputs/family-point-allinone_20260416.tar family-point-allinone:
 1. 打开 DSM 的 Container Manager
 2. 进入“镜像”
 3. 选择“新增”或“导入”
-4. 导入 `family-point-allinone_20260416.tar`
+4. 导入 `family-point-allinone_20260417.tar`
 
 ## 群晖运行建议
 
@@ -155,15 +159,22 @@ npx web-push generate-vapid-keys
 
 ## 常见问题
 
-- 图片不显示
-  - 检查 `/app/public` 是否正确映射到 NAS 持久化目录
-  - 确保 `uploads/avatars` 和 `uploads/rewards` 已存在且可写
-- 初始化后无法登录
-  - 确认首次启动时是否设置了 `STARTUP_SEED=true`
-  - 初始化成功后请移除该变量，避免重复写入种子
-- Prisma 迁移失败
-  - AIO 启动脚本会优先执行 `prisma migrate deploy`
-  - 如失败，会回退到 `prisma db push --accept-data-loss`
+### 图片不显示
+
+- 检查 `/app/public` 是否正确映射到 NAS 持久化目录
+- 确保 `uploads/avatars` 和 `uploads/rewards` 已存在且可写
+
+### 初始化后无法登录
+
+- 确认首次启动时设置了 `STARTUP_SEED=true`
+- 打开容器日志，确认出现 `=== FIRST RUN CREDENTIALS ===`
+- 如果日志中出现 `Seed failed`、`Cannot find module` 或 Prisma 初始化报错，说明默认账号没有创建成功
+- 如果你不保留旧数据，最稳妥的方式是删除或清空 `db_data` 后，再用最新镜像重新初始化
+
+### Prisma 迁移失败
+
+- AIO 启动脚本会优先执行 `prisma migrate deploy`
+- 如果失败，会回退到 `prisma db push --accept-data-loss`
 
 ## 说明
 
