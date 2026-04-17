@@ -18,6 +18,8 @@ as_pg() {
 DATA_DIR="/var/lib/postgresql/data"
 export PATH="/usr/local/bin:$PATH"
 export LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH:-}"
+export TZ="${TZ:-Asia/Shanghai}"
+export PGTZ="${PGTZ:-$TZ}"
 
 log(){ echo "[aio] $*"; }
 
@@ -49,7 +51,7 @@ if [ ! -s "$DATA_DIR/PG_VERSION" ]; then
   as_pg initdb -D "$DATA_DIR" -E UTF8 >/dev/null
 fi
 
-as_pg pg_ctl -D "$DATA_DIR" -o "-c listen_addresses=localhost -p 5432" -w start >/dev/null
+as_pg pg_ctl -D "$DATA_DIR" -o "-c listen_addresses=localhost -p 5432 -c timezone=${PGTZ}" -w start >/dev/null
 trap 'log "Stopping PostgreSQL"; as_pg pg_ctl -D "$DATA_DIR" -m fast stop >/dev/null || true' EXIT
 
 psql_cmd(){ as_pg psql -v ON_ERROR_STOP=1 -At -c "$1"; }
@@ -78,7 +80,7 @@ log "Starting Next.js on port ${PORT:-3000}"
 (
   cron_daily_loop() {
     while true; do
-      NOW=$(date -u +"%H:%M");
+      NOW=$(date +"%H:%M");
       if [ "$NOW" = "00:05" ]; then
         node -e "require('http').get('http://127.0.0.1:3000/api/cron/daily').on('error',()=>{});" >/dev/null 2>&1 || true
         sleep 60

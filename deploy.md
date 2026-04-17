@@ -60,6 +60,7 @@
 至少配置下面这些：
 
 - `NEXTAUTH_SECRET=这里填你的强随机字符串`
+- `TZ=Asia/Shanghai`
 - `POSTGRES_DB=family_points`
 - `POSTGRES_USER=fp_user`
 - `POSTGRES_PASSWORD=fp_pass_please_change`

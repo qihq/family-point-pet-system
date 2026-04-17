@@ -3,43 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRequestAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { planOccursOnDate } from "@/lib/task-progress";
-
-function utcDayRangeDays(days: number) {
-  const end = new Date();
-  const y = end.getUTCFullYear();
-  const m = end.getUTCMonth();
-  const d = end.getUTCDate();
-  const endUtc = new Date(Date.UTC(y, m, d, 23, 59, 59, 999));
-  const startUtc = new Date(endUtc.getTime() - (days - 1) * 86400000);
-  const dates: string[] = [];
-
-  for (let i = 0; i < days; i += 1) {
-    const current = new Date(startUtc.getTime() + i * 86400000);
-    dates.push(
-      `${current.getUTCFullYear()}-${String(current.getUTCMonth() + 1).padStart(2, "0")}-${String(
-        current.getUTCDate()
-      ).padStart(2, "0")}`
-    );
-  }
-
-  return { startUtc, endUtc, dates };
-}
-
-function utcWeekRange(now = new Date()) {
-  const weekday = (now.getUTCDay() + 6) % 7;
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-  start.setUTCDate(start.getUTCDate() - weekday);
-  const end = new Date(start);
-  end.setUTCDate(start.getUTCDate() + 6);
-  end.setUTCHours(23, 59, 59, 999);
-  return { start, end };
-}
-
-function utcMonthRange(now = new Date()) {
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
-  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
-  return { start, end };
-}
+import { addDays, dateKey, monthRange, trailingDayRange, weekRange } from "@/lib/time";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
   try {
@@ -68,11 +32,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const { searchParams } = new URL(request.url);
     const range = String(searchParams.get("range") || "14");
     const days = Math.max(1, parseInt(range, 10)) || 14;
-    const { startUtc, endUtc, dates } = utcDayRangeDays(days);
+    const { start, end, dates } = trailingDayRange(days);
+    const month = monthRange();
+    const week = weekRange();
 
     const [earnedLogs, allEarn, monthEarn, weekEarn, plans, completedLogs, redeems] = await Promise.all([
       prisma.taskLog.findMany({
-        where: { childId, points: { gt: 0 }, createdAt: { gte: startUtc, lte: endUtc } },
+        where: { childId, points: { gt: 0 }, createdAt: { gte: start, lte: end } },
         select: { createdAt: true, points: true },
       }),
       prisma.taskLog.aggregate({
@@ -80,11 +46,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         _sum: { points: true },
       }),
       prisma.taskLog.aggregate({
-        where: { childId, points: { gt: 0 }, createdAt: { gte: utcMonthRange().start, lte: utcMonthRange().end } },
+        where: { childId, points: { gt: 0 }, createdAt: { gte: month.start, lte: month.end } },
         _sum: { points: true },
       }),
       prisma.taskLog.aggregate({
-        where: { childId, points: { gt: 0 }, createdAt: { gte: utcWeekRange().start, lte: utcWeekRange().end } },
+        where: { childId, points: { gt: 0 }, createdAt: { gte: week.start, lte: week.end } },
         _sum: { points: true },
       }),
       prisma.taskPlan.findMany({
@@ -95,7 +61,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         where: {
           childId,
           taskPlanId: { not: null },
-          createdAt: { gte: startUtc, lte: endUtc },
+          createdAt: { gte: start, lte: end },
         },
         select: { taskPlanId: true, createdAt: true, note: true },
       }),
@@ -113,15 +79,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     for (const log of earnedLogs) {
-      const key = `${log.createdAt.getUTCFullYear()}-${String(log.createdAt.getUTCMonth() + 1).padStart(2, "0")}-${String(
-        log.createdAt.getUTCDate()
-      ).padStart(2, "0")}`;
+      const key = dateKey(log.createdAt);
       dailyMap.set(key, (dailyMap.get(key) || 0) + (log.points || 0));
     }
 
     let expectedCount = 0;
     for (let offset = 0; offset < days; offset += 1) {
-      const currentDay = new Date(startUtc.getTime() + offset * 86400000);
+      const currentDay = addDays(start, offset);
       for (const plan of plans) {
         if (planOccursOnDate(plan, currentDay)) {
           expectedCount += 1;
@@ -134,8 +98,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       if (!log.taskPlanId || (log.note || "").startsWith("rejected")) {
         continue;
       }
-      const dateKey = log.createdAt.toISOString().slice(0, 10);
-      completedKeys.add(`${log.taskPlanId}-${dateKey}`);
+      completedKeys.add(`${log.taskPlanId}-${dateKey(log.createdAt)}`);
     }
 
     return NextResponse.json({

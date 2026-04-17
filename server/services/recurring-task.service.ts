@@ -1,18 +1,16 @@
 import { Frequency } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { dateKey, endOfDay, startOfDay } from "@/lib/time";
 
-function utcDayRange(date = new Date()) {
-  const y = date.getUTCFullYear();
-  const m = date.getUTCMonth();
-  const d = date.getUTCDate();
-  const start = new Date(Date.UTC(y, m, d, 0, 0, 0, 0));
-  const end = new Date(Date.UTC(y, m, d, 23, 59, 59, 999));
-  const key = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+function localDayRange(date = new Date()) {
+  const start = startOfDay(date);
+  const end = endOfDay(date);
+  const key = dateKey(date);
   return { start, end, key };
 }
 
-function utcWeekdayMon1To7(date = new Date()) {
-  return ((date.getUTCDay() + 6) % 7) + 1;
+function localWeekdayMon1To7(date = new Date()) {
+  return ((date.getDay() + 6) % 7) + 1;
 }
 
 export function recurringTaskAppliesOnDate(
@@ -25,7 +23,7 @@ export function recurringTaskAppliesOnDate(
     try {
       const days = JSON.parse(task.weekdays || "[]");
       if (Array.isArray(days) && days.length) {
-        return days.includes(utcWeekdayMon1To7(date));
+        return days.includes(localWeekdayMon1To7(date));
       }
     } catch {}
   }
@@ -35,7 +33,7 @@ export function recurringTaskAppliesOnDate(
 
 export async function generateRecurringTasksForDate(args?: { date?: Date; familyId?: string }) {
   const targetDate = args?.date ?? new Date();
-  const { start, end, key } = utcDayRange(targetDate);
+  const { start, end, key } = localDayRange(targetDate);
   let created = 0;
 
   const recurringTasks = await prisma.recurringTask.findMany({

@@ -17,6 +17,8 @@ RUN apk add --no-cache su-exec wget openssl1.1-compat && \
 
 ENV NODE_ENV=production \
     PORT=3000 \
+    TZ=Asia/Shanghai \
+    PGTZ=Asia/Shanghai \
     POSTGRES_DB=family_points \
     POSTGRES_USER=fp_user \
     POSTGRES_PASSWORD=fp_pass_please_change

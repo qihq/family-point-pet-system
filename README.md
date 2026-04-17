@@ -133,6 +133,7 @@ docker save -o outputs/family-point-allinone_20260417.tar family-point-allinone:
   - 主机 `.../family-point/db_data` -> 容器 `/var/lib/postgresql/data`
 - 环境变量
   - `NEXTAUTH_SECRET=<强随机字符串>`
+  - `TZ=Asia/Shanghai`
   - `STARTUP_SEED=true` 仅首次初始化使用
 
 All-in-One 镜像会在容器内部启动 PostgreSQL，并自动把 `DATABASE_URL` 指向 `127.0.0.1:5432`。

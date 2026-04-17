@@ -10,5 +10,6 @@ fi
 # Otherwise, run in production start mode (no migrations to avoid dev volume conflicts)
 PORT="${PORT:-3000}"
 export NODE_ENV=production
+export TZ="${TZ:-Asia/Shanghai}"
 echo "[entrypoint] Starting Next.js on port ${PORT} (prod)"
 exec node node_modules/next/dist/bin/next start -p "${PORT}"
