@@ -158,6 +158,15 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      await tx.taskLog.create({
+        data: {
+          childId: auth.payload.userId,
+          points: award,
+          note: `rule-auto-approve;record=${record.id};rule=${rule.id}`,
+          createdAt: now,
+        },
+      });
+
       let account = await tx.pointAccount.findUnique({ where: { childId: auth.payload.userId } });
       if (!account) {
         account = await tx.pointAccount.create({ data: { childId: auth.payload.userId, balance: 0 } });

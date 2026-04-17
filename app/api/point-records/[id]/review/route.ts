@@ -96,7 +96,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         data: {
           childId: record.childId,
           points,
-          note: `rule-approve;rule=${String(record.pointRuleId || "")}`,
+          note: `rule-approve;record=${record.id};rule=${String(record.pointRuleId || "")}`,
         },
       });
       await prisma.user.update({

@@ -31,6 +31,7 @@ async function getData() {
       series: [],
       stats: { week: 0, month: 0, total: 0 },
       donut: { completed: 0, todo: 0 },
+      activities: [],
       redeems: [],
     };
   }
@@ -39,6 +40,7 @@ async function getData() {
     series: Array<{ date: string; points: number }>;
     stats: { week: number; month: number; total: number };
     donut: { completed: number; todo: number };
+    activities: Array<{ id: string; kind: "plan" | "rule"; title: string; points: number; createdAt: string }>;
     redeems: Array<{ id: string; name: string; pointsSpent: number; quantity: number; createdAt: string }>;
   };
 }
@@ -81,6 +83,33 @@ export default async function ChildGrowthPage() {
               </div>
             </div>
           </div>
+        </section>
+
+        <section className="rounded-xl border p-3 shadow-sm" style={{ background: "var(--c-card)", borderColor: "#f4e3d6" }}>
+          <div className="mb-2 text-sm" style={{ color: "var(--c-text)" }}>
+            最近获得积分
+          </div>
+          {data.activities.length === 0 ? (
+            <div className="text-sm" style={{ color: "var(--c-muted)" }}>
+              暂无积分记录
+            </div>
+          ) : (
+            <ul className="divide-y" style={{ borderColor: "#f4e3d6" }}>
+              {data.activities.map((activity) => (
+                <li key={activity.id} className="flex items-center justify-between py-2">
+                  <div>
+                    <div className="font-semibold" style={{ color: "var(--c-text)" }}>
+                      {activity.title}
+                    </div>
+                    <div className="text-xs" style={{ color: "var(--c-muted)" }}>
+                      {activity.kind === "rule" ? "积分规则" : "计划任务"} · {new Date(activity.createdAt).toLocaleString("zh-CN")}
+                    </div>
+                  </div>
+                  <div className="font-bold text-emerald-600">+{activity.points}</div>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section className="rounded-xl border p-3 shadow-sm" style={{ background: "var(--c-card)", borderColor: "#f4e3d6" }}>

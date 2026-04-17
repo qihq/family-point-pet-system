@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Role } from "@prisma/client";
+import { RecordStatus, Role } from "@prisma/client";
 import { verifyToken } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -24,17 +24,43 @@ async function getParentDashboard() {
   }
 
   const familyId = payload.familyId;
-  const [children, pendingLogs, rulesCount, rewardCount, recentPlans, weekPoints] = await Promise.all([
+  const weekStart = new Date(Date.now() - 7 * 86400000);
+
+  const [
+    children,
+    pendingTaskCount,
+    pendingRuleCount,
+    pendingTaskLogs,
+    pendingPointRecords,
+    rulesCount,
+    rewardCount,
+    recentPlans,
+    recentRuleRecords,
+    weekTaskPoints,
+    weekRulePoints,
+  ] = await Promise.all([
     prisma.user.findMany({
       where: { familyId, role: Role.child, isDeleted: false },
       select: { id: true, name: true, avatarUrl: true, streak: true, totalEarnedPoints: true },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.taskLog.count({
+      where: { note: { contains: "pending-approval" }, child: { familyId } },
+    }),
+    prisma.pointRecord.count({
+      where: { status: RecordStatus.pending, child: { familyId } },
+    }),
     prisma.taskLog.findMany({
       where: { note: { contains: "pending-approval" }, child: { familyId } },
       orderBy: { createdAt: "desc" },
       take: 5,
-      include: { child: { select: { name: true } }, taskPlan: { select: { title: true } } },
+      include: { child: { select: { name: true } }, taskPlan: { select: { title: true, points: true } } },
+    }),
+    prisma.pointRecord.findMany({
+      where: { status: RecordStatus.pending, child: { familyId } },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: { child: { select: { name: true } }, pointRule: { select: { name: true, points: true } } },
     }),
     prisma.pointRule.count({ where: { familyId, enabled: true } }),
     prisma.rewardItem.count({ where: { familyId, enabled: true } }),
@@ -44,24 +70,94 @@ async function getParentDashboard() {
       take: 6,
       include: { child: { select: { name: true } } },
     }),
-    prisma.pointTransaction.aggregate({
-      where: { createdAt: { gte: new Date(Date.now() - 7 * 86400000) } },
-      _sum: { amount: true },
+    prisma.pointRecord.findMany({
+      where: {
+        child: { familyId },
+        status: { in: [RecordStatus.pending, RecordStatus.approved] },
+      },
+      orderBy: [{ reviewedAt: "desc" }, { createdAt: "desc" }],
+      take: 6,
+      include: { child: { select: { name: true } }, pointRule: { select: { name: true, points: true } } },
+    }),
+    prisma.taskLog.aggregate({
+      where: {
+        child: { familyId },
+        points: { gt: 0 },
+        createdAt: { gte: weekStart },
+        NOT: { note: { startsWith: "rule-" } },
+      },
+      _sum: { points: true },
+    }),
+    prisma.pointRecord.aggregate({
+      where: {
+        child: { familyId },
+        status: RecordStatus.approved,
+        points: { gt: 0 },
+        OR: [{ reviewedAt: { gte: weekStart } }, { reviewedAt: null, createdAt: { gte: weekStart } }],
+      },
+      _sum: { points: true },
     }),
   ]);
 
+  const pendingItems = [
+    ...pendingTaskLogs.map((log) => ({
+      id: `task-${log.id}`,
+      kind: "plan" as const,
+      childName: log.child.name,
+      title: log.taskPlan?.title || "自由任务",
+      points: log.taskPlan?.points || log.points || 0,
+      createdAt: log.createdAt,
+    })),
+    ...pendingPointRecords.map((record) => ({
+      id: `rule-${record.id}`,
+      kind: "rule" as const,
+      childName: record.child.name,
+      title: record.pointRule?.name || "积分规则",
+      points: record.pointRule?.points || record.points || 0,
+      createdAt: record.createdAt,
+    })),
+  ]
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+    .slice(0, 5);
+
+  const recentItems = [
+    ...recentPlans.map((plan) => ({
+      id: `plan-${plan.id}`,
+      type: "plan" as const,
+      title: plan.title,
+      childName: plan.child.name,
+      points: plan.points,
+      meta: plan.frequency || "once",
+      createdAt: plan.scheduledAt || plan.createdAt,
+      status: plan.needApproval ? "需要审核" : "直接入账",
+    })),
+    ...recentRuleRecords.map((record) => ({
+      id: `rule-${record.id}`,
+      type: "rule" as const,
+      title: record.pointRule?.name || "积分规则",
+      childName: record.child.name,
+      points: record.pointRule?.points || record.points || 0,
+      meta: "rule",
+      createdAt: record.reviewedAt || record.createdAt,
+      status: record.status === RecordStatus.pending ? "待审核" : "已完成",
+    })),
+  ]
+    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+    .slice(0, 6);
+
   return {
     children,
-    pendingLogs,
+    pendingItems,
+    pendingTotal: pendingTaskCount + pendingRuleCount,
     rulesCount,
     rewardCount,
-    recentPlans,
-    weekPoints: weekPoints._sum.amount || 0,
+    recentItems,
+    weekPoints: (weekTaskPoints._sum.points || 0) + (weekRulePoints._sum.points || 0),
   };
 }
 
 export default async function ParentHome() {
-  const { children, pendingLogs, rulesCount, rewardCount, recentPlans, weekPoints } = await getParentDashboard();
+  const { children, pendingItems, pendingTotal, rulesCount, rewardCount, recentItems, weekPoints } = await getParentDashboard();
 
   return (
     <div className="space-y-8">
@@ -82,10 +178,10 @@ export default async function ParentHome() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {statCard("待审核任务", pendingLogs.length, "优先处理孩子刚提交的任务完成记录。")}
+        {statCard("待审核项", pendingTotal, "任务和积分规则的待处理提交会一起显示。")}
         {statCard("家庭成员", children.length, "当前家庭里可参与任务和奖励的孩子数量。")}
-        {statCard("启用规则", rulesCount, "当前可被提交或审核的积分规则数量。")}
-        {statCard("本周积分流动", weekPoints, "近 7 天积分收入与支出的总量。")}
+        {statCard("启用规则", rulesCount, "当前可提交或审核的积分规则数量。")}
+        {statCard("本周积分流动", weekPoints, "近 7 天任务积分和规则积分的总量。")}
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -98,13 +194,15 @@ export default async function ParentHome() {
             <Link href="/parent/review" className="text-sm font-medium text-[var(--p-accent)]">查看全部</Link>
           </div>
           <div className="mt-5 space-y-3">
-            {pendingLogs.length ? (
-              pendingLogs.map((log) => (
-                <div key={log.id} className="rounded-2xl border border-[var(--p-border)] bg-[var(--p-bg)] px-4 py-3">
+            {pendingItems.length ? (
+              pendingItems.map((item) => (
+                <div key={item.id} className="rounded-2xl border border-[var(--p-border)] bg-[var(--p-bg)] px-4 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="font-medium">{log.taskPlan?.title || "自由任务"}</div>
-                      <div className="mt-1 text-sm text-[var(--p-muted)]">{log.child.name} · {log.points} 积分</div>
+                      <div className="font-medium">{item.title}</div>
+                      <div className="mt-1 text-sm text-[var(--p-muted)]">
+                        {item.childName} · {item.points} 积分 · {item.kind === "rule" ? "积分规则" : "计划任务"}
+                      </div>
                     </div>
                     <div className="rounded-full bg-[var(--primary-50)] px-3 py-1 text-xs text-[var(--p-accent)]">待审核</div>
                   </div>
@@ -112,7 +210,7 @@ export default async function ParentHome() {
               ))
             ) : (
               <div className="rounded-2xl border border-dashed border-[var(--p-border)] px-4 py-6 text-sm text-[var(--p-muted)]">
-                当前没有待审核任务，可以去完善规则或计划，让孩子端的体验更完整。
+                当前没有待审核内容，可以去完善规则或计划，让孩子端的体验更完整。
               </div>
             )}
           </div>
@@ -162,19 +260,24 @@ export default async function ParentHome() {
         <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
             <h2 className="text-xl font-semibold">近期计划与奖励状态</h2>
-            <p className="mt-1 text-sm text-[var(--p-muted)]">这里能快速看出计划是否充足，奖励池是否有吸引力。</p>
+            <p className="mt-1 text-sm text-[var(--p-muted)]">这里会一起显示计划任务和积分规则的近期状态。</p>
           </div>
           <div className="text-sm text-[var(--p-muted)]">当前可兑换奖励 {rewardCount} 项</div>
         </div>
         <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {recentPlans.length ? (
-            recentPlans.map((plan) => (
-              <div key={plan.id} className="rounded-2xl border border-[var(--p-border)] bg-[var(--p-bg)] px-4 py-4">
-                <div className="font-medium">{plan.title}</div>
-                <div className="mt-2 text-sm text-[var(--p-muted)]">{plan.child.name} · {plan.points} 积分</div>
+          {recentItems.length ? (
+            recentItems.map((item) => (
+              <div key={item.id} className="rounded-2xl border border-[var(--p-border)] bg-[var(--p-bg)] px-4 py-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="font-medium">{item.title}</div>
+                  <div className="rounded-full bg-[var(--primary-50)] px-3 py-1 text-xs text-[var(--p-accent)]">{item.status}</div>
+                </div>
+                <div className="mt-2 text-sm text-[var(--p-muted)]">
+                  {item.childName} · {item.points} 积分 · {item.type === "rule" ? "积分规则" : "计划任务"}
+                </div>
                 <div className="mt-2 text-xs text-[var(--p-muted)]">
-                  {plan.frequency || "once"}
-                  {plan.scheduledAt ? ` · ${new Date(plan.scheduledAt).toLocaleString("zh-CN")}` : ""}
+                  {item.meta}
+                  {item.createdAt ? ` · ${new Date(item.createdAt).toLocaleString("zh-CN")}` : ""}
                 </div>
               </div>
             ))

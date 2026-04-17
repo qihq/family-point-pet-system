@@ -1,19 +1,47 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
+import { RecordStatus, Role } from "@prisma/client";
 import ThemeController from "@/components/ThemeController";
 import PushInit from "@/components/parent/PushInit";
+import { verifyToken } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { ParentLogoutButton } from "./_logout";
 import "@/styles/parent-theme.css";
 
-const navItems = [
-  { href: "/parent", label: "总览", icon: "🏠" },
-  { href: "/parent/review", label: "待审核", icon: "📝" },
-  { href: "/parent/plans", label: "学习计划", icon: "📚" },
-  { href: "/parent/point-rules", label: "积分规则", icon: "🗂️" },
-  { href: "/parent/rewards", label: "奖品管理", icon: "🎁" },
-  { href: "/parent/settings", label: "设置", icon: "⚙️" },
-];
+async function getPendingReviewCount() {
+  const token = cookies().get("token")?.value || null;
+  const payload = token ? await verifyToken(token) : null;
+  if (!payload || (payload.role !== Role.parent && payload.role !== Role.admin)) {
+    return 0;
+  }
 
-export default function ParentLayout({ children }: { children: React.ReactNode }) {
+  const [taskCount, ruleCount] = await Promise.all([
+    prisma.taskLog.count({
+      where: { note: { contains: "pending-approval" }, child: { familyId: payload.familyId } },
+    }),
+    prisma.pointRecord.count({
+      where: { status: RecordStatus.pending, child: { familyId: payload.familyId } },
+    }),
+  ]);
+
+  return taskCount + ruleCount;
+}
+
+function badgeLabel(value: number) {
+  return value > 99 ? "99+" : String(value);
+}
+
+export default async function ParentLayout({ children }: { children: React.ReactNode }) {
+  const pendingReviewCount = await getPendingReviewCount();
+  const navItems = [
+    { href: "/parent", label: "总览", icon: "🏠" },
+    { href: "/parent/review", label: "待审核", icon: "📝", badge: pendingReviewCount },
+    { href: "/parent/plans", label: "学习计划", icon: "📚" },
+    { href: "/parent/point-rules", label: "积分规则", icon: "🗂️" },
+    { href: "/parent/rewards", label: "奖品管理", icon: "🎁" },
+    { href: "/parent/settings", label: "设置", icon: "⚙️" },
+  ];
+
   return (
     <>
       <ThemeController theme="parent" />
@@ -28,7 +56,14 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
               {navItems.map((item) => (
                 <Link key={item.href} href={item.href} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition hover:bg-[var(--primary-50)]">
                   <span aria-hidden>{item.icon}</span>
-                  <span>{item.label}</span>
+                  <span className="flex items-center gap-2">
+                    <span>{item.label}</span>
+                    {item.badge ? (
+                      <span className="rounded-full bg-rose-500 px-2 py-0.5 text-xs font-semibold text-white">
+                        {badgeLabel(item.badge)}
+                      </span>
+                    ) : null}
+                  </span>
                 </Link>
               ))}
             </nav>
@@ -44,7 +79,14 @@ export default function ParentLayout({ children }: { children: React.ReactNode }
           <div className="grid grid-cols-4 py-2 text-center text-[11px]">
             {navItems.slice(0, 4).map((item) => (
               <Link key={item.href} href={item.href} className="flex flex-col items-center gap-1 px-1 py-1 text-[var(--p-muted)]">
-                <span className="text-lg" aria-hidden>{item.icon}</span>
+                <span className="relative text-lg" aria-hidden>
+                  {item.icon}
+                  {item.badge ? (
+                    <span className="absolute -right-3 -top-1 rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                      {badgeLabel(item.badge)}
+                    </span>
+                  ) : null}
+                </span>
                 <span>{item.label}</span>
               </Link>
             ))}
