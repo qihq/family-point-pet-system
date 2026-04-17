@@ -20,6 +20,7 @@
   - 审核流与通知联动
 - 管理员端
   - 家长账号管理、头像维护、系统健康和后台运维入口
+  - 系统健康页支持“全量备份导出”和“全量备份恢复”
 - 工程基线
   - Prisma 统一走共享单例
   - 认证逐步统一到 `requireRequestAuth`
@@ -158,6 +159,14 @@ npx web-push generate-vapid-keys
 - 奖励图片：`/app/public/uploads/rewards`
 - PostgreSQL 数据：`/var/lib/postgresql/data`
 
+## 管理员全量备份与恢复
+
+- 进入管理员的“系统健康”页，可以直接下载全量备份 JSON。
+- 全量备份会包含家庭、账号、密码哈希、PIN 哈希、积分规则、积分流水、任务计划与日志、奖励兑换、宠物数据、推送订阅、`SystemConfig` 和宠物消耗配置。
+- 恢复时同样在“系统健康”页上传该 JSON，并输入确认词 `RESTORE`。
+- 恢复是覆盖式操作，会先清空当前业务数据，再按备份内容完整重建。
+- `uploads` 目录里的头像、奖励图片、模型文件不会写进 JSON，如需完整迁移请单独备份 `public/uploads`。
+
 ## 常见问题
 
 ### 图片不显示
@@ -171,6 +180,12 @@ npx web-push generate-vapid-keys
 - 打开容器日志，确认出现 `=== FIRST RUN CREDENTIALS ===`
 - 如果日志中出现 `Seed failed`、`Cannot find module` 或 Prisma 初始化报错，说明默认账号没有创建成功
 - 如果你不保留旧数据，最稳妥的方式是删除或清空 `db_data` 后，再用最新镜像重新初始化
+
+### 如何做家庭整机备份
+
+- 先在管理员端导出全量备份 JSON。
+- 再备份 NAS 上映射出来的数据库目录和 `public/uploads` 目录。
+- 如果只是换机器或重装容器，优先恢复数据库卷和 `uploads`；如果数据库已经损坏，也可以先启动新实例，再用管理员页的全量恢复把数据导回去。
 
 ### Prisma 迁移失败
 
